@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistente de Mudanças</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<script>if (/estatico/.test(location.search)) document.documentElement.classList.add('estatico');</script>
+<div class="bg-fx" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span><span class="grid"></span></div>
+
+<header class="topo">
+  <div class="marca">
+    <span class="logo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg></span>
+    <div>
+      <h1>Assistente de <span class="grad">Mudanças</span></h1>
+      <p>Governança · GLPI · PRF</p>
+    </div>
+  </div>
+  <nav class="abas" role="tablist">
+    <button class="aba ativa" data-aba="dashboard"><svg viewBox="0 0 24 24"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"/></svg>Dashboard</button>
+    <button class="aba" data-aba="analisar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg>Analisar</button>
+    <button class="aba" data-aba="historico"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>Histórico</button>
+    <button class="aba" data-aba="catalogo"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></svg>Catálogo</button>
+    <button class="aba" data-aba="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Config</button>
+  </nav>
+  <span id="badgeHist" class="badge-hist"><i class="pulso"></i><span>Histórico: —</span></span>
+</header>
+
+<main>
+  <!-- ================= DASHBOARD ================= -->
+  <section id="aba-dashboard" class="painel ativo">
+    <div class="dash-topo">
+      <div>
+        <h2 class="titulo-pagina">Painel de <span class="grad">Mudanças</span></h2>
+        <p class="dica" id="dashSub">Base histórica do GLPI</p>
+      </div>
+      <div class="filtros-dash" role="group" aria-label="Período">
+        <button data-periodo="30">30 dias</button>
+        <button data-periodo="90">90 dias</button>
+        <button data-periodo="365" class="sel">12 meses</button>
+        <button data-periodo="0">Tudo</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="dash-grade">
+      <div class="card span2"><div class="card-cab"><h3>RDMs por mês</h3><div class="legenda" id="legMes"></div></div><div id="chMes" class="chart"></div></div>
+      <div class="card"><div class="card-cab"><h3>Ao vivo <span class="dica">— últimas abertas</span></h3></div><ul class="feed" id="feed"></ul></div>
+      <div class="card"><div class="card-cab"><h3>Top sistemas</h3></div><div id="chApps" class="chart"></div></div>
+      <div class="card"><div class="card-cab"><h3>Torres mais envolvidas <span class="dica">— observador</span></h3></div><div id="chTorres" class="chart"></div></div>
+      <div class="card"><div class="card-cab"><h3>Abertura por dia da semana</h3></div><div id="chStatus" class="chart"></div></div>
+      <div class="card span3"><div class="card-cab"><h3>Mix de tipo por categoria</h3><div class="legenda" id="legCat"></div></div><div id="chCat" class="chart"></div></div>
+    </div>
+  </section>
+
+  <!-- ================= ANALISAR ================= -->
+  <section id="aba-analisar" class="painel">
+    <div class="grade">
+      <div class="card entrada">
+        <h2>Chamado</h2>
+        <div class="linha2">
+          <label>Título da RDM <span class="dica">(opcional — detecto no texto)</span>
+            <input id="inTitulo" placeholder="[RDM] - PDI - Executar deploy em Produção (2026100053)">
+          </label>
+        </div>
+        <label>Link do chamado <span class="dica">(opcional — vai na mensagem do emergencial)</span>
+          <input id="inLink" placeholder="https://glpi.prf.gov.br/front/change.form.php?id=…">
+        </label>
+        <label>Descrição / Dados do formulário
+          <textarea id="inTexto" rows="14" placeholder="Cole aqui tudo do chamado: título, Dados do formulário, descrição…"></textarea>
+        </label>
+        <label>Script SQL <span class="dica">(se houver — define DDL × DML)</span>
+          <textarea id="inScript" rows="6" class="mono" placeholder="UPDATE … / ALTER TABLE …"></textarea>
+        </label>
+        <div class="acoes">
+          <button id="btnAnalisar" class="prim">Analisar</button>
+          <button id="btnLimpar">Limpar</button>
+          <button id="btnExemplo" class="link">Carregar exemplo</button>
+        </div>
+        <p class="rodape-dica">Atalho: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> analisa.</p>
+      </div>
+
+      <div id="resultado" class="resultado">
+        <div class="vazio">
+          <div class="vazio-icone">📋</div>
+          <p>Cole o texto do chamado e clique em <b>Analisar</b>.</p>
+          <p class="dica">Tudo roda no seu navegador. Nada é enviado para fora.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HISTÓRICO ================= -->
+  <section id="aba-historico" class="painel">
+    <div class="card">
+      <h2>Base histórica</h2>
+      <p>Importe a exportação CSV de <b>Mudanças</b> do GLPI (pode importar vários arquivos — os IDs repetidos são atualizados). Fica salvo neste navegador.</p>
+      <p id="infoBase" class="dica"></p>
+      <div class="acoes">
+        <label class="botao-arquivo prim">Importar CSV do GLPI
+          <input id="inCSV" type="file" accept=".csv,text/csv" multiple hidden>
+        </label>
+        <button id="btnLimparHist" class="perigo">Apagar importações deste navegador</button>
+        <span id="msgHist" class="dica"></span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="filtros">
+        <input id="fTexto" placeholder="Buscar título, ID, sistema…">
+        <select id="fTipo"><option value="">Todos os tipos</option><option>Padrão</option><option>Normal</option><option>Emergencial</option><option>Requisição</option><option>Incidente</option><option>Outro</option></select>
+        <select id="fStatus"><option value="">Todos os status</option></select>
+        <select id="fCat"><option value="">Todas as categorias</option></select>
+      </div>
+      <div id="resumoHist" class="resumo-hist"></div>
+      <div class="tabela-wrap"><table class="tabela" id="tabHist"></table></div>
+    </div>
+  </section>
+
+  <!-- ================= CATÁLOGO ================= -->
+  <section id="aba-catalogo" class="painel">
+    <div class="card">
+      <h2>Catálogo de Mudança Padrão 2025</h2>
+      <p class="dica">Mudança padrão: alteração pré-autorizada de baixo risco e impacto, rotineira e com procedimento estabelecido. O que <b>não</b> está aqui é Normal (ou Emergencial).</p>
+      <div class="tabela-wrap"><table class="tabela" id="tabCatalogo"></table></div>
+    </div>
+    <div class="cols2">
+      <div class="card proc">
+        <h3><span class="pill padrao">Padrão</span> Procedimento</h3>
+        <ol>
+          <li>Tipo da Mudança = <b>Padrão</b>.</li>
+          <li>Observadores: os da aba Config (+ grupo da torre).</li>
+          <li>Atribuído: você + parceiro + <code>CGGT &gt; Apoio Governanca</code>.</li>
+          <li>Marcar os observadores no chat de mudanças pedindo a <b>EXEC</b> direto para a torre.</li>
+        </ol>
+      </div>
+      <div class="card proc">
+        <h3><span class="pill normal">Normal</span> Procedimento</h3>
+        <ol>
+          <li>Tipo da Mudança = <b>Normal</b>.</li>
+          <li>Atribuído: você + parceiro + <code>CGGT &gt; Apoio Governanca</code>.</li>
+          <li>Responder → <b>Fluxo de mudança</b>.</li>
+          <li>Abrir o <b>PLAN</b> (planejamento) escolhendo as torres envolvidas.</li>
+        </ol>
+      </div>
+      <div class="card proc">
+        <h3><span class="pill emergencial">Emergencial</span> Procedimento</h3>
+        <ol>
+          <li>Tipo da Mudança = <b>Emergencial</b>.</li>
+          <li>Observadores: os ticket managers.</li>
+          <li>Atribuído: você + <code>CGGT &gt; Apoio Governanca</code>.</li>
+          <li>Avisar no grupo de mudanças e falar com o ticket manager: “Segue link da mudança emergencial para abrir EXEC e fazer contato com o analista + link”.</li>
+        </ol>
+      </div>
+      <div class="card proc">
+        <h3><span class="pill requisicao">Requisição</span> Ambiente não produtivo</h3>
+        <ol>
+          <li>Pedidos para <b>Homologação / Desenvolvimento / Capacitação</b> não são mudança.</li>
+          <li>Devolver para a <b>Central de Serviços</b> tratar como requisição.</li>
+          <li>Exceção: <i>excluir recursos de ambientes descomissionados</i> (dev/hmg) é Padrão.</li>
+        </ol>
+      </div>
+      <div class="card proc">
+        <h3>Script de banco: DDL × DML</h3>
+        <ul>
+          <li><b>DML</b> (dados) — <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>SELECT</code> → <span class="pill padrao">Padrão</span></li>
+          <li><b>DDL</b> (estrutura) — <code>CREATE</code>, <code>ALTER</code>, <code>DROP</code>, <code>TRUNCATE</code> → <span class="pill normal">Normal</span></li>
+          <li>Deploy <b>com</b> script de banco → Normal.</li>
+        </ul>
+      </div>
+      <div class="card proc">
+        <h3>Fechar mudança</h3>
+        <ol>
+          <li><b>Na RDM:</b> conferir se está concluída → status <b>Fechado</b> → print com a solução e o status.</li>
+          <li><b>Na GMUD:</b> registrar “RDM encerrada” + print.</li>
+          <li>Desativar o pop-up do fluxo de mudança pausado.</li>
+          <li>Remover do campo “Atribuído” o prestador da central.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONFIG ================= -->
+  <section id="aba-config" class="painel">
+    <div class="card config">
+      <h2>Configurações</h2>
+      <p class="dica">Cada colega ajusta com o próprio nome. Fica salvo só neste navegador.</p>
+      <label>Seu nome (Atribuído)<input id="cfgMeuNome"></label>
+      <label>Parceiro atribuído (Padrão e Normal)<input id="cfgParceiro"></label>
+      <label>Grupo da Governança<input id="cfgGrupoGov"></label>
+      <label>Observadores da Padrão (um por linha)<textarea id="cfgObservadores" rows="3"></textarea></label>
+      <label>Ticket managers — Emergencial (um por linha)<textarea id="cfgTicketManagers" rows="3"></textarea></label>
+      <div class="acoes">
+        <button id="btnSalvarCfg" class="prim">Salvar</button>
+        <button id="btnResetCfg">Restaurar padrão</button>
+        <span id="msgCfg" class="dica"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status"></div>
+<div id="tip" class="tip" role="tooltip"></div>
+
+<script src="js/config-local.js"></script>
+<script src="js/core.js"></script>
+<script src="js/historico-base.js"></script>
+<script src="js/history.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

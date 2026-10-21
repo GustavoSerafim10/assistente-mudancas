@@ -1,0 +1,5 @@
+# Dados internos da PRF — NUNCA versionar (repositório público)
+dados/
+js/historico-base.js
+js/config-local.js
+*.csv
