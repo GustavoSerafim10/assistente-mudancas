@@ -380,6 +380,7 @@ $('#btnSalvarCfg').addEventListener('click', () => {
   for (const [k, s] of Object.entries(CFG_CAMPOS)) cfg[k] = $(s).value.trim();
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); $('#msgCfg').textContent = 'Salvo.'; } catch { $('#msgCfg').textContent = 'Não consegui salvar neste navegador.'; }
   if (ultimo) renderResultado();
+  if (typeof renderDashboard === 'function') renderDashboard();
 });
 $('#btnResetCfg').addEventListener('click', () => { cfg = { ...CFG_PADRAO }; carregarCfgUI(); $('#msgCfg').textContent = 'Valores padrão restaurados (clique em Salvar).'; });
 

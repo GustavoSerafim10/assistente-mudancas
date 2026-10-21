@@ -237,6 +237,14 @@ function renderFeed(L) {
 function renderDashboard() {
   if (!document.getElementById('kpis')) return;
   DASH.tips = [];
+  // boas-vindas: aparece enquanto faltar o CSV ou a configuração do nome
+  const temDados = Historico.dados.length > 0;
+  const cfgOk = typeof cfg !== 'undefined' && cfg.meuNome && !cfg.meuNome.startsWith('(');
+  document.getElementById('dashVazio').hidden = temDados && cfgOk;
+  document.getElementById('bvPasso1').classList.toggle('feito', temDados);
+  document.getElementById('bvPasso2').classList.toggle('feito', cfgOk);
+  document.getElementById('kpis').hidden = !temDados;
+  document.querySelector('.dash-grade').hidden = !temDados;
   const L = filtrar();
   const base = Historico.base;
   document.getElementById('dashSub').textContent = Historico.dados.length
@@ -261,3 +269,7 @@ document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('cli
 }));
 document.querySelectorAll('.aba').forEach(b => b.addEventListener('click', () => { if (b.dataset.aba === 'dashboard') renderDashboard(); }));
 renderDashboard();
+
+/* botões da boas-vindas */
+document.getElementById('btnBvCSV').addEventListener('click', () => document.getElementById('inCSV').click());
+document.getElementById('btnBvCfg').addEventListener('click', () => document.querySelector('.aba[data-aba="config"]').click());

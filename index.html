@@ -43,6 +43,23 @@
         <button data-periodo="0">Tudo</button>
       </div>
     </div>
+    <div class="boas-vindas" id="dashVazio" hidden>
+      <div class="bv-icone">🚀</div>
+      <h2>Bem-vindo! Bora configurar em 2 passos</h2>
+      <p class="dica">Os dados ficam só no seu navegador — nada é enviado para fora.</p>
+      <div class="bv-passos">
+        <div class="bv-passo" id="bvPasso1">
+          <span class="bv-num">1</span>
+          <div><b>Importe o CSV de Mudanças do GLPI</b><p class="dica">Alimenta o painel e o histórico parecido.</p></div>
+          <button class="prim" id="btnBvCSV">Importar CSV do GLPI</button>
+        </div>
+        <div class="bv-passo" id="bvPasso2">
+          <span class="bv-num">2</span>
+          <div><b>Coloque seu nome e os observadores</b><p class="dica">Usados no Atribuído e nas mensagens do chat.</p></div>
+          <button id="btnBvCfg">Abrir Configurações</button>
+        </div>
+      </div>
+    </div>
     <div class="kpis" id="kpis"></div>
     <div class="dash-grade">
       <div class="card span2"><div class="card-cab"><h3>RDMs por mês</h3><div class="legenda" id="legMes"></div></div><div id="chMes" class="chart"></div></div>
