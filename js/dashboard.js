@@ -240,7 +240,7 @@ function renderDashboard() {
   // boas-vindas: aparece enquanto faltar o CSV ou a configuração do nome
   const temDados = Historico.dados.length > 0;
   const cfgOk = typeof cfg !== 'undefined' && cfg.meuNome && !cfg.meuNome.startsWith('(');
-  document.getElementById('dashVazio').hidden = temDados && cfgOk;
+  document.getElementById('dashVazio').hidden = temDados;   // só no painel vazio; importou o CSV, some
   document.getElementById('bvPasso1').classList.toggle('feito', temDados);
   document.getElementById('bvPasso2').classList.toggle('feito', cfgOk);
   document.getElementById('kpis').hidden = !temDados;
