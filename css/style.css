@@ -275,3 +275,5 @@ details summary { cursor: pointer; font-weight: 600; }
 .salvar-hist { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--borda); }
 .salvar-hist .dica { flex: 1 1 260px; }
 .pill.assist { background: rgba(139, 92, 246, .18); color: #c4b5fd; margin-left: 4px; }
+.salvar-hist.corrigido { border-top-color: rgba(139, 92, 246, .45); }
+.salvar-hist.discreto button.link { padding: 2px 4px; font-size: .8rem; }

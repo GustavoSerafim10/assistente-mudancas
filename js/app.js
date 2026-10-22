@@ -191,8 +191,12 @@ function blocoSalvarHist(d, tipo) {
       ${igual ? '' : `<button data-acao="salvarHist" class="prim">Atualizar para ${esc(tipo)}</button>`}
       <button data-acao="removerHist" class="link">remover</button></div>`;
   }
-  return `<div class="salvar-hist"><button data-acao="salvarHist" class="prim">＋ Salvar no histórico</button>
-    <span class="dica">A RDM ${esc(d.info.numero)} entra no Histórico e no Dashboard como <b>${esc(tipo)}</b> (status "Em análise"). Quando você importar um CSV novo do GLPI, o dado oficial substitui este.</span></div>`;
+  // Destaque só quando você CORRIGIU o motor: é aí que salvar acrescenta conhecimento ao histórico.
+  if (tipo !== d.tipo)
+    return `<div class="salvar-hist corrigido"><button data-acao="salvarHist" class="prim">＋ Salvar sua correção no histórico</button>
+      <span class="dica">O motor disse <b>${esc(d.tipo)}</b> e você corrigiu para <b>${esc(tipo)}</b>. Salvando, as próximas RDMs parecidas vão mostrar essa correção como referência. O CSV oficial do GLPI substitui este registro quando for importado.</span></div>`;
+  return `<div class="salvar-hist discreto"><span class="dica">Concordou com a análise? Não precisa salvar — o próximo CSV do GLPI já traz esta RDM.</span>
+    <button data-acao="salvarHist" class="link">salvar mesmo assim (controle pessoal)</button></div>`;
 }
 
 function aposMudarHistorico() {
