@@ -270,3 +270,8 @@ details summary { cursor: pointer; font-weight: 600; }
 .bv-passo.feito .bv-num::after { content: "✓"; font-size: 1rem; }
 .bv-passo.feito button { opacity: .6; }
 .kpis[hidden], .dash-grade[hidden] { display: none; }
+
+/* análise salva no histórico */
+.salvar-hist { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--borda); }
+.salvar-hist .dica { flex: 1 1 260px; }
+.pill.assist { background: rgba(139, 92, 246, .18); color: #c4b5fd; margin-left: 4px; }

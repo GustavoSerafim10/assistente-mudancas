@@ -65,7 +65,7 @@ function renderKpis(L) {
   const dias = validas.filter(r => /fechado/i.test(r.status) && r.dtFim).map(r => (r.dtFim - r.dt) / 864e5).filter(d => d >= 0).sort((a, b) => a - b);
   const mediana = dias.length ? dias[Math.floor(dias.length / 2)] : 0;
   const itens = [
-    { rot: 'RDMs no período', num: L.length, det: `${fmt(validas.length)} válidas`, kc: 'var(--grad)' },
+    { rot: 'RDMs no período', num: L.length, det: `${fmt(validas.length)} válidas` + (L.some(r => r.origem === 'assistente') ? ` · ${fmt(L.filter(r => r.origem === 'assistente').length)} via assistente` : ''), kc: 'var(--grad)' },
     { rot: 'Padrão', num: p, det: `${pct(p, tipadas)}% das tipadas`, kc: 'var(--padrao)' },
     { rot: 'Normal', num: n, det: `${pct(n, tipadas)}% das tipadas`, kc: 'var(--normal)' },
     { rot: 'Emergencial', num: em, det: `${pct(em, tipadas)}% das tipadas`, kc: 'var(--emerg)' },
@@ -229,7 +229,7 @@ function renderFeed(L) {
   document.getElementById('feed').innerHTML = ult.length ? ult.map((r, i) => `<li style="animation-delay:${i * 40}ms">
       <span class="ponto" style="background:${cor[r.tipo] || 'var(--req)'}"></span>
       <span class="t">${esc(r.titulo.replace(/^\s*\[(rdm|rmd|gmud)\]\s*-?\s*/i, ''))}</span>
-      <span class="m"><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo || '—')}</span>${esc(r.id)} · ${r.dt.toLocaleDateString('pt-BR')} · ${esc(r.status)}</span></li>`).join('')
+      <span class="m"><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo || '—')}</span>${r.origem === 'assistente' ? ' <span class="pill assist">via assistente</span>' : ''}${esc(r.id)} · ${r.dt.toLocaleDateString('pt-BR')} · ${esc(r.status)}</span></li>`).join('')
     : '<li><span></span><span class="dica">Sem RDMs no período.</span></li>';
 }
 

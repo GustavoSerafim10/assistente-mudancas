@@ -154,6 +154,53 @@ function montarSaida(d, tipo, hist) {
   return s;
 }
 
+/* ---------- salvar a análise no histórico (aparece no Histórico e no Dashboard) ---------- */
+function agoraBR() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function registroDaAnalise(d, tipo) {
+  const hist = buscarSemelhantes(d);
+  const catSug = hist && hist.sugestaoCat ? hist.sugestaoCat.categoria : '';
+  const categoria = d.categoria && !d.categoria.startsWith('—') ? d.categoria : catSug;
+  const extras = (d.atribuidoExtra || []).map(k => TORRES[k].grupo);
+  let obs = [], atribuido = [cfg.grupoGov, ...extras];
+  if (tipo === 'Padrão') obs = d.torreExec ? [TORRES[d.torreExec].grupo] : [];
+  else if (tipo === 'Normal' || tipo === 'Emergencial') obs = listarTorres(d, hist).filter(t => t.nivel === 'principal').map(t => t.grupo);
+  else atribuido = [];
+  const anterior = Historico.locais.find(r => r.id === d.info.numero);
+  return {
+    id: d.info.numero, titulo: d.info.titulo || `(RDM ${d.info.numero})`,
+    status: tipo === 'Requisição' ? 'Devolvido (requisição)' : 'Em análise',
+    abertura: anterior ? anterior.abertura : agoraBR(), atualizacao: agoraBR(),
+    categoria, atribuido, tarefas: 0, tipo, obs,
+    app: d.info.app || appFromTitle(d.info.titulo), ambiente: d.info.ambiente, origem: 'assistente',
+  };
+}
+
+function blocoSalvarHist(d, tipo) {
+  if (!d.info.numero) return `<div class="salvar-hist"><span class="dica">Para salvar no histórico, coloque o número da RDM no título — ex.: "… (2026100053)".</span></div>`;
+  const existente = Historico.dados.find(r => r.id === d.info.numero);
+  if (existente && existente.origem !== 'assistente')
+    return `<div class="salvar-hist"><span class="pill padrao">✓ já está no histórico do GLPI</span><span class="dica">RDM ${esc(d.info.numero)} veio do CSV importado (tipo: ${esc(existente.tipo || '—')}).</span></div>`;
+  if (existente) {
+    const igual = existente.tipo === tipo;
+    return `<div class="salvar-hist"><span class="pill padrao">✓ salva no histórico</span>
+      <span class="dica">como <b>${esc(existente.tipo)}</b> em ${esc(existente.atualizacao)}</span>
+      ${igual ? '' : `<button data-acao="salvarHist" class="prim">Atualizar para ${esc(tipo)}</button>`}
+      <button data-acao="removerHist" class="link">remover</button></div>`;
+  }
+  return `<div class="salvar-hist"><button data-acao="salvarHist" class="prim">＋ Salvar no histórico</button>
+    <span class="dica">A RDM ${esc(d.info.numero)} entra no Histórico e no Dashboard como <b>${esc(tipo)}</b> (status "Em análise"). Quando você importar um CSV novo do GLPI, o dado oficial substitui este.</span></div>`;
+}
+
+function aposMudarHistorico() {
+  atualizarBadge(); preencherFiltros(); renderHistorico();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  renderResultado();
+}
+
 function renderValor(v) {
   if (Array.isArray(v)) return v.length ? '<ul>' + v.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : '<span class="dica">—</span>';
   return esc(v);
@@ -193,6 +240,7 @@ function renderResultado() {
       ${opcoes.map(o => `<button data-ov="${o}" class="${tipo === o ? 'sel' : ''}">${o}</button>`).join('')}
       ${override ? '<button data-ov="">↺ voltar ao automático</button>' : ''}
     </div>
+    ${blocoSalvarHist(d, tipo)}
   </div>`;
 
   if (alertas.length) html += `<div class="card"><h3>⚠️ Atenção</h3><ul class="alertas">${alertas.map(a => `<li>${a}</li>`).join('')}</ul></div>`;
@@ -268,6 +316,18 @@ function renderHistCard(h) {
 $('#resultado').addEventListener('click', e => {
   const c = e.target.closest('[data-copy]');
   if (c) return copiar(c.dataset.copy);
+  const ac = e.target.closest('[data-acao]');
+  if (ac && ultimo) {
+    const tipo = override || ultimo.tipo;
+    if (ac.dataset.acao === 'salvarHist') {
+      const ok = Historico.registrarAnalise(registroDaAnalise(ultimo, tipo));
+      toast(ok ? `RDM ${ultimo.info.numero} salva no histórico` : 'Não consegui salvar neste navegador');
+    } else if (ac.dataset.acao === 'removerHist') {
+      Historico.removerAnalise(ultimo.info.numero);
+      toast('Removida do histórico');
+    }
+    return aposMudarHistorico();
+  }
   const ov = e.target.closest('[data-ov]');
   if (ov) { override = ov.dataset.ov || null; if (override === ultimo.tipo) override = null; return renderResultado(); }
   if (e.target.id === 'btnCopiarTorres') return copiar($$('[data-torre]:checked').map(x => x.dataset.torre).join('\n'));
@@ -358,13 +418,13 @@ function renderHistorico() {
   if (!H.length) { $('#tabHist').innerHTML = ''; $('#resumoHist').innerHTML = 'Nenhuma mudança carregada ainda.'; return; }
   const q = norm($('#fTexto').value), ft = $('#fTipo').value, fs = $('#fStatus').value, fc = $('#fCat').value;
   const lista = H.filter(r => (!ft || r.tipo === ft) && (!fs || r.status === fs) && (!fc || r.categoria === fc)
-    && (!q || norm(r.id + ' ' + r.titulo + ' ' + r.app + ' ' + r.obs.join(' ')).includes(q)));
+    && (!q || norm(r.id + ' ' + r.titulo + ' ' + r.app + ' ' + r.obs.join(' ') + ' ' + (r.origem === 'assistente' ? 'via assistente' : '')).includes(q)));
   const st = estatisticas(lista);
   $('#resumoHist').innerHTML = `${lista.length} de ${H.length} mudanças` + (st.totalTipado ? barraTipos(st.porTipo, st.totalTipado) : '');
   const max = 400;
   $('#tabHist').innerHTML = `<tr><th>ID</th><th>Título</th><th>Sistema</th><th>Tipo</th><th>Status</th><th>Abertura</th><th>Tarefas</th><th>Observadores (grupo)</th></tr>` +
     lista.slice(0, max).map(r => `<tr><td>${esc(r.id)}</td><td>${esc(r.titulo)}<div class="grupos">${esc(r.categoria)}</div></td><td>${esc(r.app)}</td>
-      <td><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo || '—')}</span></td><td>${esc(r.status)}</td><td>${esc(r.abertura)}</td><td>${r.tarefas}</td>
+      <td><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo || '—')}</span>${r.origem === 'assistente' ? ' <span class="pill assist">via assistente</span>' : ''}</td><td>${esc(r.status)}</td><td>${esc(r.abertura)}</td><td>${r.tarefas}</td>
       <td class="grupos">${r.obs.map(esc).join('<br>') || '—'}</td></tr>`).join('') +
     (lista.length > max ? `<tr><td colspan="8" class="dica">Mostrando ${max} — use os filtros para refinar.</td></tr>` : '');
 }

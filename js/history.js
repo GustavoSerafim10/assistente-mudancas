@@ -97,6 +97,19 @@ const Historico = {
     this.combinar();
     return { add, upd, total: this.dados.length, salvo: this.salvar() };
   },
+  /* RDM analisada no Assistente: entra (ou é atualizada) nas importações locais.
+     Um CSV do GLPI importado depois com o mesmo ID substitui este registro. */
+  registrarAnalise(reg) {
+    const i = this.locais.findIndex(r => r.id === reg.id);
+    if (i >= 0) this.locais[i] = reg; else this.locais.push(reg);
+    this.combinar();
+    return this.salvar();
+  },
+  removerAnalise(id) {
+    this.locais = this.locais.filter(r => !(r.id === id && r.origem === 'assistente'));
+    this.combinar();
+    return this.salvar();
+  },
   limpar() { this.locais = []; try { localStorage.removeItem(HIST_KEY); } catch { } this.combinar(); },
 };
 
@@ -141,7 +154,7 @@ function estatisticas(lista) {
 }
 
 function buscarSemelhantes(d) {
-  const H = Historico.dados;
+  const H = Historico.dados.filter(r => r.id !== d.info.numero);   // não comparar a RDM com ela mesma
   if (!H.length) return null;
   const app = d.info.app;
   const cat = d.categoria && !d.categoria.startsWith('—') ? d.categoria : '';
