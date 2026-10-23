@@ -277,3 +277,16 @@ details summary { cursor: pointer; font-weight: 600; }
 .pill.assist { background: rgba(139, 92, 246, .18); color: #c4b5fd; margin-left: 4px; }
 .salvar-hist.corrigido { border-top-color: rgba(139, 92, 246, .45); }
 .salvar-hist.discreto button.link { padding: 2px 4px; font-size: .8rem; }
+
+/* dois painéis + filtro de datas */
+.visoes { display: flex; gap: 4px; padding: 4px; background: rgba(255, 255, 255, .03); border: 1px solid var(--borda); border-radius: 14px; }
+.visoes button { border: 0; background: none; padding: 9px 16px; font-size: .9rem; color: var(--sub); border-radius: 10px; }
+.visoes button:hover { color: var(--txt); background: rgba(255, 255, 255, .05); }
+.visoes button.sel { color: #fff; background: linear-gradient(110deg, rgba(79, 140, 255, .32), rgba(139, 92, 246, .32)); box-shadow: inset 0 0 0 1px rgba(139, 92, 246, .45), 0 6px 20px -8px rgba(139, 92, 246, .8); }
+.contador { display: inline-grid; place-items: center; min-width: 22px; height: 20px; padding: 0 6px; margin-left: 4px; border-radius: 99px; font-size: .72rem; font-weight: 750; background: rgba(139, 92, 246, .35); color: #fff; }
+.barra-datas { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: -4px 0 18px; }
+.intervalo { display: flex; gap: 10px; align-items: center; }
+.intervalo label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .8rem; color: var(--sub); }
+.intervalo input { margin: 0; padding: 6px 10px; width: auto; color-scheme: dark; }
+#visao-glpi[hidden], #visao-atend[hidden], #kpisAt[hidden], #gradeAt[hidden] { display: none; }
+input[type=file][hidden] { display: none !important; }

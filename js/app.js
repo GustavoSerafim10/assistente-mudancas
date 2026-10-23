@@ -179,24 +179,37 @@ function registroDaAnalise(d, tipo) {
   };
 }
 
+function destinoDoAtendimento(d, tipo) {
+  if (tipo === 'Requisição') return 'Central de Serviços (devolvida)';
+  if (tipo === 'Normal') return TORRES[d.grupoPlan || 'MUD'].grupo;
+  if (d.torreExec) return TORRES[d.torreExec].grupo;
+  const princ = listarTorres(d, buscarSemelhantes(d)).filter(t => t.nivel === 'principal');
+  return princ.length ? princ[0].grupo : '';
+}
+
+function atendimentoDaAnalise(d, tipo) {
+  const reg = registroDaAnalise(d, tipo);
+  return {
+    id: reg.id, titulo: reg.titulo, tipo, tipoMotor: d.tipo, corrigido: tipo !== d.tipo,
+    categoria: reg.categoria, destino: destinoDoAtendimento(d, tipo), app: reg.app, ambiente: d.info.ambiente || '',
+    cenario: d.cenario, analista: cfg.meuNome, quando: new Date().toISOString(),
+  };
+}
+
+/* bloco abaixo do veredito: registrar o atendimento (vai para o painel "Meus atendimentos") */
 function blocoSalvarHist(d, tipo) {
-  if (!d.info.numero) return `<div class="salvar-hist"><span class="dica">Para salvar no histórico, coloque o número da RDM no título — ex.: "… (2026100053)".</span></div>`;
-  const existente = Historico.dados.find(r => r.id === d.info.numero);
-  if (existente && existente.origem !== 'assistente')
-    return `<div class="salvar-hist"><span class="pill padrao">✓ já está no histórico do GLPI</span><span class="dica">RDM ${esc(d.info.numero)} veio do CSV importado (tipo: ${esc(existente.tipo || '—')}).</span></div>`;
-  if (existente) {
-    const igual = existente.tipo === tipo;
-    return `<div class="salvar-hist"><span class="pill padrao">✓ salva no histórico</span>
-      <span class="dica">como <b>${esc(existente.tipo)}</b> em ${esc(existente.atualizacao)}</span>
-      ${igual ? '' : `<button data-acao="salvarHist" class="prim">Atualizar para ${esc(tipo)}</button>`}
-      <button data-acao="removerHist" class="link">remover</button></div>`;
+  if (!d.info.numero) return `<div class="salvar-hist"><span class="dica">Para registrar o atendimento, coloque o número da RDM no título — ex.: "… (2026100053)".</span></div>`;
+  const reg = Atendimentos.doAnalista(d.info.numero, cfg.meuNome);
+  const corrigido = tipo !== d.tipo;
+  if (reg) {
+    const quando = new Date(reg.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return `<div class="salvar-hist"><span class="pill padrao">✓ atendimento registrado</span>
+      <span class="dica">em ${quando} como <b>${esc(reg.tipo)}</b>${reg.corrigido ? ' (sua correção também ficou como referência no histórico)' : ''}</span>
+      ${reg.tipo === tipo ? '' : `<button data-acao="registrar" class="prim">Atualizar para ${esc(tipo)}</button>`}
+      <button data-acao="desregistrar" class="link">desfazer</button></div>`;
   }
-  // Destaque só quando você CORRIGIU o motor: é aí que salvar acrescenta conhecimento ao histórico.
-  if (tipo !== d.tipo)
-    return `<div class="salvar-hist corrigido"><button data-acao="salvarHist" class="prim">＋ Salvar sua correção no histórico</button>
-      <span class="dica">O motor disse <b>${esc(d.tipo)}</b> e você corrigiu para <b>${esc(tipo)}</b>. Salvando, as próximas RDMs parecidas vão mostrar essa correção como referência. O CSV oficial do GLPI substitui este registro quando for importado.</span></div>`;
-  return `<div class="salvar-hist discreto"><span class="dica">Concordou com a análise? Não precisa salvar — o próximo CSV do GLPI já traz esta RDM.</span>
-    <button data-acao="salvarHist" class="link">salvar mesmo assim (controle pessoal)</button></div>`;
+  return `<div class="salvar-hist${corrigido ? ' corrigido' : ''}"><button data-acao="registrar" class="prim">✓ Registrar atendimento</button>
+    <span class="dica">Entra no painel <b>Meus atendimentos</b> como <b>${esc(tipo)}</b>, com data de hoje${corrigido ? `. Como você corrigiu o assistente (<b>${esc(d.tipo)}</b> → <b>${esc(tipo)}</b>), a correção também fica como referência para RDMs parecidas` : ''}.</span></div>`;
 }
 
 function aposMudarHistorico() {
@@ -323,12 +336,17 @@ $('#resultado').addEventListener('click', e => {
   const ac = e.target.closest('[data-acao]');
   if (ac && ultimo) {
     const tipo = override || ultimo.tipo;
-    if (ac.dataset.acao === 'salvarHist') {
-      const ok = Historico.registrarAnalise(registroDaAnalise(ultimo, tipo));
-      toast(ok ? `RDM ${ultimo.info.numero} salva no histórico` : 'Não consegui salvar neste navegador');
-    } else if (ac.dataset.acao === 'removerHist') {
+    if (ac.dataset.acao === 'registrar') {
+      const at = atendimentoDaAnalise(ultimo, tipo);
+      const ok = Atendimentos.registrar(at);
+      // só a CORREÇÃO vai para o histórico de referência; concordar com o assistente não acrescenta nada lá
+      if (at.corrigido) Historico.registrarAnalise(registroDaAnalise(ultimo, tipo));
+      else Historico.removerAnalise(ultimo.info.numero);
+      toast(ok ? `Atendimento ${ultimo.info.numero} registrado` : 'Não consegui salvar neste navegador');
+    } else if (ac.dataset.acao === 'desregistrar') {
+      Atendimentos.remover(ultimo.info.numero, cfg.meuNome);
       Historico.removerAnalise(ultimo.info.numero);
-      toast('Removida do histórico');
+      toast('Registro desfeito');
     }
     return aposMudarHistorico();
   }

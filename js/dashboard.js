@@ -1,9 +1,14 @@
 /* =========================================================================
-   Dashboard — gráficos SVG feitos à mão (sem bibliotecas externas)
+   Dashboard — dois painéis (Histórico GLPI × Meus atendimentos)
+   Gráficos SVG feitos à mão (sem bibliotecas externas)
    ========================================================================= */
 'use strict';
 
-const DASH = { periodo: 365, tips: [] };
+const DASH = {
+  visao: 'glpi',
+  tips: [],
+  filtro: { glpi: { preset: '365' }, atend: { preset: 'mes' } },   // cada painel lembra o próprio período
+};
 /* ordem de empilhamento validada (Normal → Padrão → Emergencial) */
 const TIPOS_STACK = [
   { tipo: 'Normal', cor: 'var(--normal)', cls: 'normal' },
@@ -11,15 +16,18 @@ const TIPOS_STACK = [
   { tipo: 'Emergencial', cor: 'var(--emerg)', cls: 'emergencial' },
 ];
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const MESES_LONGO = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 function dataBR(s) {           // "dd-mm-yyyy hh:mm"
   const m = String(s || '').match(/(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
   return m ? new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)) : null;
 }
-const cancelada = r => /cancel|recus/i.test(r.status);
+const cancelada = r => /cancel|recus/i.test(r.status || '');
 const fmt = n => n.toLocaleString('pt-BR');
 const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
-const curtoGrupo = g => g.replace(/^CIA > DISTI > /, '').replace(/^CGGT > /, '');
+const curtoGrupo = g => String(g || '').replace(/^CIA > DISTI > /, '').replace(/^CGGT > /, '');
+const isoDia = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const vazioChart = '<div class="vazio-chart">Sem dados no período.</div>';
 
 /* ---------- tooltip ---------- */
 function tipId(html) { DASH.tips.push(html); return DASH.tips.length - 1; }
@@ -37,13 +45,43 @@ document.addEventListener('mousemove', e => {
 });
 const linhaTip = (cor, nome, val) => `<div class="linha"><span>${cor ? `<i style="background:${cor}"></i>` : ''}${esc(nome)}</span><span>${val}</span></div>`;
 
-/* ---------- dados ---------- */
-function filtrar() {
-  const H = Historico.dados.map(r => ({ ...r, dt: dataBR(r.abertura), dtFim: dataBR(r.atualizacao) })).filter(r => r.dt);
-  if (!DASH.periodo) return H;
-  const corte = new Date(); corte.setHours(0, 0, 0, 0); corte.setDate(corte.getDate() - DASH.periodo);
-  return H.filter(r => r.dt >= corte);
+/* ---------- período ---------- */
+function intervaloDoPreset(preset) {
+  const hoje = new Date(), ini = d => { d.setHours(0, 0, 0, 0); return d; }, fim = d => { d.setHours(23, 59, 59, 999); return d; };
+  if (preset === 'mes') return { de: ini(new Date(hoje.getFullYear(), hoje.getMonth(), 1)), ate: fim(new Date(hoje)) };
+  if (preset === 'mesant') return { de: ini(new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)), ate: fim(new Date(hoje.getFullYear(), hoje.getMonth(), 0)) };
+  if (preset === '0') return { de: null, ate: null };
+  const n = +preset, de = ini(new Date(hoje)); de.setDate(de.getDate() - n);
+  return { de, ate: fim(new Date(hoje)) };
 }
+function intervaloAtual() {
+  const f = DASH.filtro[DASH.visao];
+  if (f.preset !== 'custom') return intervaloDoPreset(f.preset);
+  return {
+    de: f.de ? new Date(f.de + 'T00:00:00') : null,
+    ate: f.ate ? new Date(f.ate + 'T23:59:59') : null,
+  };
+}
+function descreverIntervalo({ de, ate }) {
+  const f = DASH.filtro[DASH.visao];
+  const hoje = new Date();
+  if (f.preset === 'mes') return `${MESES_LONGO[hoje.getMonth()]} de ${hoje.getFullYear()}`;
+  if (f.preset === 'mesant') { const d = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1); return `${MESES_LONGO[d.getMonth()]} de ${d.getFullYear()}`; }
+  if (!de && !ate) return 'todo o período';
+  return `${de ? de.toLocaleDateString('pt-BR') : 'início'} a ${ate ? ate.toLocaleDateString('pt-BR') : 'hoje'}`;
+}
+function noIntervalo(lista, iv) { return lista.filter(r => r.dt && (!iv.de || r.dt >= iv.de) && (!iv.ate || r.dt <= iv.ate)); }
+
+function sincronizarControlesPeriodo() {
+  const f = DASH.filtro[DASH.visao], iv = intervaloAtual();
+  document.querySelectorAll('[data-periodo]').forEach(b => b.classList.toggle('sel', b.dataset.periodo === f.preset));
+  document.getElementById('dtDe').value = iv.de ? isoDia(iv.de) : '';
+  document.getElementById('dtAte').value = iv.ate ? isoDia(iv.ate) : '';
+}
+
+/* ---------- dados ---------- */
+function dadosGLPI() { return Historico.dados.map(r => ({ ...r, dt: dataBR(r.abertura), dtFim: dataBR(r.atualizacao) })).filter(r => r.dt); }
+function dadosAtend() { return Atendimentos.lista.map(r => ({ ...r, dt: new Date(r.quando), status: '' })).filter(r => !isNaN(r.dt)); }
 
 /* ---------- KPIs ---------- */
 function contarAte(el, alvo, sufixo = '') {
@@ -56,23 +94,8 @@ function contarAte(el, alvo, sufixo = '') {
   };
   requestAnimationFrame(passo);
 }
-
-function renderKpis(L) {
-  const validas = L.filter(r => !cancelada(r));
-  const tip = t => validas.filter(r => r.tipo === t).length;
-  const p = tip('Padrão'), n = tip('Normal'), em = tip('Emergencial'), tipadas = p + n + em;
-  const canc = L.length - validas.length;
-  const dias = validas.filter(r => /fechado/i.test(r.status) && r.dtFim).map(r => (r.dtFim - r.dt) / 864e5).filter(d => d >= 0).sort((a, b) => a - b);
-  const mediana = dias.length ? dias[Math.floor(dias.length / 2)] : 0;
-  const itens = [
-    { rot: 'RDMs no período', num: L.length, det: `${fmt(validas.length)} válidas` + (L.some(r => r.origem === 'assistente') ? ` · ${fmt(L.filter(r => r.origem === 'assistente').length)} via assistente` : ''), kc: 'var(--grad)' },
-    { rot: 'Padrão', num: p, det: `${pct(p, tipadas)}% das tipadas`, kc: 'var(--padrao)' },
-    { rot: 'Normal', num: n, det: `${pct(n, tipadas)}% das tipadas`, kc: 'var(--normal)' },
-    { rot: 'Emergencial', num: em, det: `${pct(em, tipadas)}% das tipadas`, kc: 'var(--emerg)' },
-    { rot: 'Canceladas', num: canc, det: `${pct(canc, L.length)}% do total`, kc: 'var(--req)' },
-    { rot: 'Lead time (mediana)', num: Math.round(mediana * 10) / 10, suf: ' d', det: 'abertura → última atualização (fechadas)', kc: 'var(--a3)' },
-  ];
-  const box = document.getElementById('kpis');
+function desenharKpis(boxId, itens) {
+  const box = document.getElementById(boxId);
   box.innerHTML = itens.map((k, i) => `<div class="kpi" style="--kc:${k.kc};animation-delay:${i * .05}s">
       <div class="rotulo"><i></i>${k.rot}</div><div class="num" data-alvo="${k.num}" data-suf="${k.suf || ''}">0</div><div class="det">${k.det}</div></div>`).join('');
   box.querySelectorAll('.num').forEach(el => {
@@ -82,23 +105,61 @@ function renderKpis(L) {
   });
 }
 
-/* ---------- RDMs por período (barras empilhadas) ---------- */
-function baldes(L) {
-  const porDia = DASH.periodo && DASH.periodo <= 30, porSemana = DASH.periodo && DASH.periodo > 30 && DASH.periodo <= 90;
+function kpisGLPI(L) {
+  const validas = L.filter(r => !cancelada(r));
+  const tip = t => validas.filter(r => r.tipo === t).length;
+  const p = tip('Padrão'), n = tip('Normal'), em = tip('Emergencial'), tipadas = p + n + em;
+  const canc = L.length - validas.length;
+  const dias = validas.filter(r => /fechado/i.test(r.status) && r.dtFim).map(r => (r.dtFim - r.dt) / 864e5).filter(d => d >= 0).sort((a, b) => a - b);
+  const mediana = dias.length ? dias[Math.floor(dias.length / 2)] : 0;
+  desenharKpis('kpis', [
+    { rot: 'RDMs no período', num: L.length, det: `${fmt(validas.length)} válidas`, kc: 'var(--grad)' },
+    { rot: 'Padrão', num: p, det: `${pct(p, tipadas)}% das tipadas`, kc: 'var(--padrao)' },
+    { rot: 'Normal', num: n, det: `${pct(n, tipadas)}% das tipadas`, kc: 'var(--normal)' },
+    { rot: 'Emergencial', num: em, det: `${pct(em, tipadas)}% das tipadas`, kc: 'var(--emerg)' },
+    { rot: 'Canceladas', num: canc, det: `${pct(canc, L.length)}% do total`, kc: 'var(--req)' },
+    { rot: 'Lead time (mediana)', num: Math.round(mediana * 10) / 10, suf: ' d', det: 'abertura → última atualização (fechadas)', kc: 'var(--a3)' },
+  ]);
+}
+
+function kpisAtend(L) {
+  const tip = t => L.filter(r => r.tipo === t).length;
+  const p = tip('Padrão'), n = tip('Normal'), em = tip('Emergencial'), req = tip('Requisição');
+  const corrigidas = L.filter(r => r.corrigido).length;
+  const dias = new Set(L.map(r => isoDia(r.dt))).size;
+  desenharKpis('kpisAt', [
+    { rot: 'Atendimentos', num: L.length, det: dias ? `em ${dias} dia${dias > 1 ? 's' : ''} · média ${(L.length / dias).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/dia` : '—', kc: 'var(--grad)' },
+    { rot: 'Padrão', num: p, det: `${pct(p, L.length)}% dos atendimentos`, kc: 'var(--padrao)' },
+    { rot: 'Normal', num: n, det: `${pct(n, L.length)}% dos atendimentos`, kc: 'var(--normal)' },
+    { rot: 'Emergencial', num: em, det: `${pct(em, L.length)}% dos atendimentos`, kc: 'var(--emerg)' },
+    { rot: 'Devolvidas (requisição)', num: req, det: `${pct(req, L.length)}% dos atendimentos`, kc: 'var(--req)' },
+    { rot: 'Acerto do assistente', num: L.length ? pct(L.length - corrigidas, L.length) : 0, suf: '%', det: `${corrigidas} corrigida${corrigidas === 1 ? '' : 's'} manualmente`, kc: 'var(--a3)' },
+  ]);
+}
+
+/* ---------- barras empilhadas por período ---------- */
+function baldes(L, iv) {
+  const t0 = iv.de || (L.length ? new Date(Math.min(...L.map(r => r.dt))) : new Date());
+  const t1 = iv.ate || new Date();
+  const span = (t1 - t0) / 864e5;
+  const porDia = span <= 45, porSemana = !porDia && span <= 120;
   const chave = d => {
-    if (porDia) return d.toISOString().slice(0, 10);
-    if (porSemana) { const s = new Date(d); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); s.setHours(0, 0, 0, 0); return s.toISOString().slice(0, 10); }
+    if (porDia) return isoDia(d);
+    if (porSemana) { const s = new Date(d); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); return isoDia(s); }
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
   const rotulo = k => {
     if (porDia || porSemana) { const [, m, d] = k.split('-'); return `${d}/${m}`; }
     const [a, m] = k.split('-'); return `${MESES[+m - 1]}/${a.slice(2)}`;
   };
+  const novo = k => ({ k, rot: rotulo(k), Normal: 0, 'Padrão': 0, Emergencial: 0, outros: 0, total: 0 });
   const mapa = new Map();
+  // no modo diário de um intervalo fechado, mostra todos os dias (inclusive os vazios) — dá a "cara" do mês
+  if (porDia && iv.de) for (let d = new Date(iv.de); d <= t1; d.setDate(d.getDate() + 1)) mapa.set(isoDia(d), novo(isoDia(d)));
   for (const r of L) {
     if (cancelada(r)) continue;
     const k = chave(r.dt);
-    if (!mapa.has(k)) mapa.set(k, { k, rot: rotulo(k), Normal: 0, 'Padrão': 0, Emergencial: 0, outros: 0, total: 0 });
+    if (!mapa.has(k)) mapa.set(k, novo(k));
     const b = mapa.get(k);
     if (b[r.tipo] != null) b[r.tipo]++; else b.outros++;
     b.total++;
@@ -106,51 +167,54 @@ function baldes(L) {
   return { lista: [...mapa.values()].sort((a, b) => a.k.localeCompare(b.k)), unidade: porDia ? 'dia' : porSemana ? 'semana' : 'mês' };
 }
 
-function renderMes(L) {
-  const el = document.getElementById('chMes');
-  const { lista, unidade } = baldes(L);
-  document.getElementById('legMes').innerHTML = [...TIPOS_STACK].reverse().map(t => `<span><i class="c-${t.cls}"></i>${t.tipo}</span>`).join('');
-  if (!lista.length) { el.innerHTML = '<div class="vazio-chart">Sem dados no período.</div>'; return; }
+function renderEmpilhado(L, iv, chId, legId, rotUnidade, nomeItem = 'RDMs', outrosNome = 'Outros') {
+  const el = document.getElementById(chId);
+  const { lista, unidade } = baldes(L, iv);
+  document.getElementById(legId).innerHTML = [...TIPOS_STACK].reverse().map(t => `<span><i class="c-${t.cls}"></i>${t.tipo}</span>`).join('')
+    + (lista.some(b => b.outros) ? `<span><i class="c-outro"></i>${outrosNome}</span>` : '');
+  if (rotUnidade) document.getElementById(rotUnidade.id).textContent = rotUnidade.prefixo + ' ' + unidade;
+  if (!lista.some(b => b.total)) { el.innerHTML = vazioChart; return unidade; }
   const W = 760, H = 270, pad = { l: 34, r: 8, t: 22, b: 28 };
   const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
   const max = Math.max(...lista.map(b => b.total)) || 1;
-  const passoY = max > 50 ? 20 : max > 20 ? 10 : max > 8 ? 4 : 1;
+  const passoY = max > 50 ? 20 : max > 20 ? 10 : max > 8 ? 4 : max > 4 ? 2 : 1;
   const topo = Math.ceil(max / passoY) * passoY;
   const bw = iw / lista.length, larg = Math.max(4, Math.min(38, bw * .62));
   const y = v => pad.t + ih - v / topo * ih;
-  const mostrarTodos = lista.length <= 14;
+  const mostrarTodos = lista.length <= 16;
   const imax = lista.findIndex(b => b.total === max);
+  const series = [...TIPOS_STACK, { tipo: 'outros', cor: 'var(--req)' }];
   let svg = '';
   for (let v = 0; v <= topo; v += passoY) svg += `<line class="eixo" x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${pad.l - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
-  const cadaRot = Math.ceil(lista.length / 14);
+  const cadaRot = Math.ceil(lista.length / 16);
   lista.forEach((b, i) => {
     const cx = pad.l + bw * i + bw / 2, x = cx - larg / 2;
     let base = 0, segs = '';
-    const visiveis = TIPOS_STACK.filter(t => b[t.tipo] > 0);
+    const visiveis = series.filter(t => b[t.tipo] > 0);
     visiveis.forEach((t, j) => {
       const v = b[t.tipo], y0 = y(base), y1 = y(base + v);
       const h = Math.max(0, y0 - y1 - (j > 0 ? 2 : 0)); // 2px de respiro entre segmentos
-      const topoSeg = j === visiveis.length - 1;
       const r = Math.min(4, h, larg / 2);
-      segs += topoSeg
+      segs += j === visiveis.length - 1
         ? `<path fill="${t.cor}" d="M${x},${y1 + h} V${y1 + r} Q${x},${y1} ${x + r},${y1} H${x + larg - r} Q${x + larg},${y1} ${x + larg},${y1 + r} V${y1 + h} Z"/>`
         : `<rect fill="${t.cor}" x="${x}" y="${y1}" width="${larg}" height="${h}"/>`;
       base += v;
     });
-    svg += `<g class="barra-anim" style="animation-delay:${i * 25}ms">${segs}</g>`;
-    if (mostrarTodos || i === imax) svg += `<text class="val" x="${cx}" y="${y(b.total) - 7}" text-anchor="middle">${b.total}</text>`;
+    svg += `<g class="barra-anim" style="animation-delay:${i * 20}ms">${segs}</g>`;
+    if (b.total && (mostrarTodos || i === imax)) svg += `<text class="val" x="${cx}" y="${y(b.total) - 7}" text-anchor="middle">${b.total}</text>`;
     if (i % cadaRot === 0) svg += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${b.rot}</text>`;
-    const tip = tipId(`<div class="tt">${esc(b.rot)} · ${b.total} RDMs</div>` + [...TIPOS_STACK].reverse().map(t => linhaTip(t.cor, t.tipo, b[t.tipo])).join('')
-      + (b.outros ? linhaTip('var(--req)', 'Outros', b.outros) : ''));
+    const tip = tipId(`<div class="tt">${esc(b.rot)} · ${b.total} ${nomeItem}</div>` + [...TIPOS_STACK].reverse().map(t => linhaTip(t.cor, t.tipo, b[t.tipo])).join('')
+      + (b.outros ? linhaTip('var(--req)', outrosNome, b.outros) : ''));
     svg += `<rect class="hit" data-tip="${tip}" x="${pad.l + bw * i}" y="${pad.t}" width="${bw}" height="${ih}"/>`;
   });
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="RDMs por ${unidade}, empilhadas por tipo">${svg}</svg>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${nomeItem} por ${unidade}, empilhadas por tipo">${svg}</svg>`;
+  return unidade;
 }
 
 /* ---------- barras horizontais (uma série) ---------- */
 function renderBarrasH(id, pares, rotulo, cor = 'var(--serie)') {
   const el = document.getElementById(id);
-  if (!pares.length) { el.innerHTML = '<div class="vazio-chart">Sem dados no período.</div>'; return; }
+  if (!pares.length) { el.innerHTML = vazioChart; return; }
   const W = 420, linha = 30, H = pares.length * linha + 4, labW = 176, valW = 44;
   const max = Math.max(...pares.map(p => p[1]));
   const total = pares.reduce((a, p) => a + p[1], 0);
@@ -165,16 +229,16 @@ function renderBarrasH(id, pares, rotulo, cor = 'var(--serie)') {
   });
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)}">${svg}</svg>`;
 }
-
 function topN(contagem, n) { return Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, n); }
+function contar(L, f) { const c = {}; for (const r of L) for (const k of [].concat(f(r) || [])) if (k) c[k] = (c[k] || 0) + 1; return c; }
 
-/* ---------- abertura por dia da semana (colunas, uma série) ---------- */
-function renderSemana(L) {
-  const el = document.getElementById('chStatus');
+/* ---------- dia da semana (colunas, uma série) ---------- */
+function renderSemana(L, id, rotulo) {
+  const el = document.getElementById(id);
   const nomes = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'], cont = [0, 0, 0, 0, 0, 0, 0];
   for (const r of L) if (!cancelada(r)) cont[(r.dt.getDay() + 6) % 7]++;
   const total = cont.reduce((a, b) => a + b, 0);
-  if (!total) { el.innerHTML = '<div class="vazio-chart">Sem dados no período.</div>'; return; }
+  if (!total) { el.innerHTML = vazioChart; return; }
   const W = 420, H = 250, pad = { l: 10, r: 10, t: 22, b: 26 }, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
   const max = Math.max(...cont), bw = iw / 7, larg = bw * .56;
   let svg = `<line class="eixo" x1="${pad.l}" x2="${W - pad.r}" y1="${pad.t + ih}" y2="${pad.t + ih}"/>`;
@@ -183,9 +247,9 @@ function renderSemana(L) {
     svg += `<path class="barra-anim" style="animation-delay:${i * 50}ms" fill="${i === cont.indexOf(max) ? 'var(--a2)' : 'var(--serie)'}" d="M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + larg - r} Q${x + larg},${y} ${x + larg},${y + r} V${y + h} Z"/>
       <text class="val" x="${x + larg / 2}" y="${y - 7}" text-anchor="middle">${v}</text>
       <text x="${x + larg / 2}" y="${H - 8}" text-anchor="middle">${nomes[i]}</text>
-      <rect class="hit" data-tip="${tipId(`<div class="tt">${nomes[i]}</div>` + linhaTip('', 'RDMs abertas', v) + linhaTip('', 'Participação', pct(v, total) + '%'))}" x="${pad.l + bw * i}" y="${pad.t}" width="${bw}" height="${ih}"/>`;
+      <rect class="hit" data-tip="${tipId(`<div class="tt">${nomes[i]}</div>` + linhaTip('', rotulo, v) + linhaTip('', 'Participação', pct(v, total) + '%'))}" x="${pad.l + bw * i}" y="${pad.t}" width="${bw}" height="${ih}"/>`;
   });
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="RDMs abertas por dia da semana">${svg}</svg>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rotulo)} por dia da semana">${svg}</svg>`;
 }
 
 /* ---------- mix de tipo por categoria (100% empilhado) ---------- */
@@ -199,7 +263,7 @@ function renderCategorias(L) {
     if (c[r.tipo] != null) { c[r.tipo]++; c.total++; }
   }
   const lista = Object.entries(cats).filter(([, c]) => c.total).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
-  if (!lista.length) { el.innerHTML = '<div class="vazio-chart">Sem dados no período.</div>'; return; }
+  if (!lista.length) { el.innerHTML = vazioChart; return; }
   const W = 1180, linha = 34, H = lista.length * linha + 4, labW = 360, valW = 60, bw = W - labW - valW;
   let svg = '';
   lista.forEach(([nome, c], i) => {
@@ -222,54 +286,130 @@ function renderCategorias(L) {
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Mix de tipo de mudança por categoria">${svg}</svg>`;
 }
 
-/* ---------- feed ---------- */
+/* ---------- feed (GLPI) ---------- */
 function renderFeed(L) {
   const cor = { 'Padrão': 'var(--padrao)', Normal: 'var(--normal)', Emergencial: 'var(--emerg)' };
   const ult = [...L].sort((a, b) => b.dt - a.dt).slice(0, 12);
   document.getElementById('feed').innerHTML = ult.length ? ult.map((r, i) => `<li style="animation-delay:${i * 40}ms">
       <span class="ponto" style="background:${cor[r.tipo] || 'var(--req)'}"></span>
       <span class="t">${esc(r.titulo.replace(/^\s*\[(rdm|rmd|gmud)\]\s*-?\s*/i, ''))}</span>
-      <span class="m"><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo || '—')}</span>${r.origem === 'assistente' ? ' <span class="pill assist">via assistente</span>' : ''}${esc(r.id)} · ${r.dt.toLocaleDateString('pt-BR')} · ${esc(r.status)}</span></li>`).join('')
+      <span class="m"><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo || '—')}</span>${esc(r.id)} · ${r.dt.toLocaleDateString('pt-BR')} · ${esc(r.status)}</span></li>`).join('')
     : '<li><span></span><span class="dica">Sem RDMs no período.</span></li>';
+}
+
+/* ---------- tabela de atendimentos ---------- */
+function renderTabelaAt(L) {
+  const q = norm(document.getElementById('atBusca').value);
+  const lista = [...L].filter(r => !q || norm([r.id, r.titulo, r.analista, r.destino, r.tipo, r.app].join(' ')).includes(q)).sort((a, b) => b.dt - a.dt);
+  document.getElementById('atResumo').textContent = `— ${fmt(lista.length)} de ${fmt(L.length)}`;
+  const eu = typeof cfg !== 'undefined' ? norm(cfg.meuNome) : '';
+  document.getElementById('tabAt').innerHTML = `<tr><th>Data</th><th>ID</th><th>Título</th><th>Tipo</th><th>Encaminhado para</th><th>Analista</th><th></th></tr>` +
+    (lista.length ? lista.slice(0, 500).map(r => `<tr>
+      <td>${r.dt.toLocaleDateString('pt-BR')}<div class="grupos">${r.dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div></td>
+      <td>${esc(r.id)}</td>
+      <td>${esc(r.titulo)}<div class="grupos">${esc(r.categoria || '')}</div></td>
+      <td><span class="pill ${classeTipo(r.tipo)}">${esc(r.tipo)}</span>${r.corrigido ? `<div class="grupos">corrigido (assistente: ${esc(r.tipoMotor)})</div>` : ''}</td>
+      <td class="grupos">${esc(r.destino || '—')}</td>
+      <td class="grupos">${esc(r.analista)}</td>
+      <td>${norm(r.analista) === eu ? `<button class="link" data-at-remover="${esc(r.id)}" title="Remover este atendimento">remover</button>` : ''}</td></tr>`).join('')
+      : `<tr><td colspan="7" class="dica">Nenhum atendimento ${q ? 'com esse filtro' : 'no período'}.</td></tr>`);
 }
 
 /* ---------- principal ---------- */
 function renderDashboard() {
   if (!document.getElementById('kpis')) return;
   DASH.tips = [];
-  // boas-vindas: aparece enquanto faltar o CSV ou a configuração do nome
-  const temDados = Historico.dados.length > 0;
-  const cfgOk = typeof cfg !== 'undefined' && cfg.meuNome && !cfg.meuNome.startsWith('(');
-  document.getElementById('dashVazio').hidden = temDados;   // só no painel vazio; importou o CSV, some
-  document.getElementById('bvPasso1').classList.toggle('feito', temDados);
-  document.getElementById('bvPasso2').classList.toggle('feito', cfgOk);
-  document.getElementById('kpis').hidden = !temDados;
-  document.querySelector('.dash-grade').hidden = !temDados;
-  const L = filtrar();
-  const base = Historico.base;
-  document.getElementById('dashSub').textContent = Historico.dados.length
-    ? `${fmt(L.length)} RDMs no período · base de ${fmt(Historico.dados.length)} mudanças${base ? ' · atualizada em ' + new Date(base.geradoEm).toLocaleDateString('pt-BR') : ''}`
-    : 'Sem histórico — importe o CSV na aba Histórico.';
-  renderKpis(L);
-  renderMes(L);
-  renderFeed(L);
-  const valid = L.filter(r => !cancelada(r));
-  const apps = {}, torres = {};
-  for (const r of valid) { if (r.app) apps[r.app] = (apps[r.app] || 0) + 1; for (const g of r.obs) torres[curtoGrupo(g)] = (torres[curtoGrupo(g)] || 0) + 1; }
-  renderBarrasH('chApps', topN(apps, 8), 'RDMs');
-  renderBarrasH('chTorres', topN(torres, 8), 'RDMs como observador');
-  renderSemana(L);
-  renderCategorias(L);
+  const v = DASH.visao;
+  document.querySelectorAll('[data-visao]').forEach(b => b.classList.toggle('sel', b.dataset.visao === v));
+  document.getElementById('visao-glpi').hidden = v !== 'glpi';
+  document.getElementById('visao-atend').hidden = v !== 'atend';
+  document.getElementById('contAt').textContent = fmt(Atendimentos.lista.length);
+  sincronizarControlesPeriodo();
+  const iv = intervaloAtual(), periodoTxt = descreverIntervalo(iv);
+
+  if (v === 'glpi') {
+    document.getElementById('dashTitulo').innerHTML = 'Painel de <span class="grad">Mudanças</span>';
+    const temDados = Historico.dados.length > 0;
+    const cfgOk = typeof cfg !== 'undefined' && cfg.meuNome && !cfg.meuNome.startsWith('(');
+    document.getElementById('dashVazio').hidden = temDados;
+    document.getElementById('bvPasso1').classList.toggle('feito', temDados);
+    document.getElementById('bvPasso2').classList.toggle('feito', cfgOk);
+    document.getElementById('kpis').hidden = !temDados;
+    document.querySelector('#visao-glpi .dash-grade').hidden = !temDados;
+    const L = noIntervalo(dadosGLPI(), iv);
+    const base = Historico.base;
+    document.getElementById('dashSub').textContent = temDados
+      ? `${fmt(L.length)} RDMs em ${periodoTxt} · base de ${fmt(Historico.dados.length)} mudanças do GLPI${base ? ' · atualizada em ' + new Date(base.geradoEm).toLocaleDateString('pt-BR') : ''}`
+      : 'Sem histórico — importe o CSV na aba Histórico.';
+    if (!temDados) return;
+    kpisGLPI(L);
+    renderEmpilhado(L, iv, 'chMes', 'legMes', { id: 'tituloMes', prefixo: 'RDMs por' }, 'RDMs');
+    renderFeed(L);
+    const valid = L.filter(r => !cancelada(r));
+    renderBarrasH('chApps', topN(contar(valid, r => r.app), 8), 'RDMs');
+    renderBarrasH('chTorres', topN(contar(valid, r => r.obs.map(curtoGrupo)), 8), 'RDMs como observador');
+    renderSemana(L, 'chStatus', 'RDMs abertas');
+    renderCategorias(L);
+  } else {
+    document.getElementById('dashTitulo').innerHTML = 'Meus <span class="grad">Atendimentos</span>';
+    const L = noIntervalo(dadosAtend(), iv);
+    const analistas = new Set(L.map(r => norm(r.analista))).size;
+    document.getElementById('dashSub').textContent = `${fmt(L.length)} atendimento${L.length === 1 ? '' : 's'} em ${periodoTxt}${analistas > 1 ? ` · ${analistas} analistas` : ''} · ${fmt(Atendimentos.lista.length)} registrados no total`;
+    const vazio = L.length === 0;
+    document.getElementById('atVazio').hidden = !vazio;
+    document.getElementById('kpisAt').hidden = vazio;
+    document.getElementById('gradeAt').hidden = vazio;
+    if (vazio) return;
+    kpisAtend(L);
+    renderEmpilhado(L, iv, 'chAt', 'legAt', { id: 'tituloAtMes', prefixo: 'Atendimentos por' }, 'atendimentos', 'Devolvidas (requisição)');
+    renderBarrasH('chAtDest', topN(contar(L, r => curtoGrupo(r.destino)), 8), 'atendimentos', 'var(--a2)');
+    renderBarrasH('chAtApps', topN(contar(L, r => r.app), 8), 'atendimentos');
+    renderBarrasH('chAtAnalista', topN(contar(L, r => r.analista), 8), 'atendimentos', 'var(--a3)');
+    renderSemana(L, 'chAtSemana', 'atendimentos');
+    renderTabelaAt(L);
+  }
 }
 
+/* ---------- eventos ---------- */
+document.querySelectorAll('[data-visao]').forEach(b => b.addEventListener('click', () => { DASH.visao = b.dataset.visao; renderDashboard(); }));
 document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('[data-periodo]').forEach(x => x.classList.toggle('sel', x === b));
-  DASH.periodo = +b.dataset.periodo;
+  DASH.filtro[DASH.visao] = { preset: b.dataset.periodo };
+  renderDashboard();
+}));
+['dtDe', 'dtAte'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+  DASH.filtro[DASH.visao] = { preset: 'custom', de: document.getElementById('dtDe').value, ate: document.getElementById('dtAte').value };
   renderDashboard();
 }));
 document.querySelectorAll('.aba').forEach(b => b.addEventListener('click', () => { if (b.dataset.aba === 'dashboard') renderDashboard(); }));
-renderDashboard();
+
+document.getElementById('atBusca').addEventListener('input', () => { DASH.tips = []; renderTabelaAt(noIntervalo(dadosAtend(), intervaloAtual())); });
+document.getElementById('btnAtIrAnalisar').addEventListener('click', () => document.querySelector('.aba[data-aba="analisar"]').click());
+document.getElementById('btnAtExportar').addEventListener('click', () => {
+  const iv = intervaloAtual();
+  const L = noIntervalo(dadosAtend(), iv);
+  const sufixo = iv.de ? isoDia(iv.de) + (iv.ate ? '_a_' + isoDia(iv.ate) : '') : 'tudo';
+  baixarArquivo(`atendimentos_${sufixo}.csv`, Atendimentos.paraCSV(L));
+});
+document.querySelectorAll('.inAtCSV').forEach(inp => inp.addEventListener('change', async e => {
+  const msgs = [];
+  for (const f of [...e.target.files]) {
+    try { const r = Atendimentos.importarCSV(decodificar(await f.arrayBuffer())); msgs.push(`${f.name}: ${r.add} novos, ${r.upd} atualizados`); }
+    catch (err) { msgs.push(`${f.name}: ${err.message}`); }
+  }
+  e.target.value = '';
+  toast(msgs.join(' · '));
+  renderDashboard();
+}));
+document.getElementById('tabAt').addEventListener('click', e => {
+  const b = e.target.closest('[data-at-remover]');
+  if (!b || !confirm(`Remover o atendimento da RDM ${b.dataset.atRemover}?`)) return;
+  Atendimentos.remover(b.dataset.atRemover, cfg.meuNome);
+  renderDashboard();
+});
 
 /* botões da boas-vindas */
 document.getElementById('btnBvCSV').addEventListener('click', () => document.getElementById('inCSV').click());
 document.getElementById('btnBvCfg').addEventListener('click', () => document.querySelector('.aba[data-aba="config"]').click());
+
+if (location.hash === '#atendimentos') DASH.visao = 'atend';   // link direto: index.html#atendimentos
+renderDashboard();

@@ -33,16 +33,30 @@
   <section id="aba-dashboard" class="painel ativo">
     <div class="dash-topo">
       <div>
-        <h2 class="titulo-pagina">Painel de <span class="grad">Mudanças</span></h2>
+        <h2 class="titulo-pagina" id="dashTitulo">Painel de <span class="grad">Mudanças</span></h2>
         <p class="dica" id="dashSub">Base histórica do GLPI</p>
       </div>
-      <div class="filtros-dash" role="group" aria-label="Período">
-        <button data-periodo="30">30 dias</button>
-        <button data-periodo="90">90 dias</button>
-        <button data-periodo="365" class="sel">12 meses</button>
-        <button data-periodo="0">Tudo</button>
+      <div class="visoes" role="tablist" aria-label="Qual painel">
+        <button data-visao="glpi" class="sel">📊 Histórico GLPI</button>
+        <button data-visao="atend">✅ Meus atendimentos <span class="contador" id="contAt">0</span></button>
       </div>
     </div>
+    <div class="barra-datas">
+      <div class="filtros-dash" role="group" aria-label="Período">
+        <button data-periodo="mes">Este mês</button>
+        <button data-periodo="mesant">Mês passado</button>
+        <button data-periodo="30">30 dias</button>
+        <button data-periodo="90">90 dias</button>
+        <button data-periodo="365">12 meses</button>
+        <button data-periodo="0">Tudo</button>
+      </div>
+      <div class="intervalo">
+        <label>De <input type="date" id="dtDe"></label>
+        <label>Até <input type="date" id="dtAte"></label>
+      </div>
+    </div>
+
+    <div id="visao-glpi">
     <div class="boas-vindas" id="dashVazio" hidden>
       <div class="bv-icone">🚀</div>
       <h2>Bem-vindo! Bora configurar em 2 passos</h2>
@@ -62,13 +76,44 @@
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="dash-grade">
-      <div class="card span2"><div class="card-cab"><h3>RDMs por mês</h3><div class="legenda" id="legMes"></div></div><div id="chMes" class="chart"></div></div>
+      <div class="card span2"><div class="card-cab"><h3 id="tituloMes">RDMs por mês</h3><div class="legenda" id="legMes"></div></div><div id="chMes" class="chart"></div></div>
       <div class="card"><div class="card-cab"><h3>Ao vivo <span class="dica">— últimas abertas</span></h3></div><ul class="feed" id="feed"></ul></div>
       <div class="card"><div class="card-cab"><h3>Top sistemas</h3></div><div id="chApps" class="chart"></div></div>
       <div class="card"><div class="card-cab"><h3>Torres mais envolvidas <span class="dica">— observador</span></h3></div><div id="chTorres" class="chart"></div></div>
       <div class="card"><div class="card-cab"><h3>Abertura por dia da semana</h3></div><div id="chStatus" class="chart"></div></div>
       <div class="card span3"><div class="card-cab"><h3>Mix de tipo por categoria</h3><div class="legenda" id="legCat"></div></div><div id="chCat" class="chart"></div></div>
     </div>
+    </div><!-- /visao-glpi -->
+
+    <div id="visao-atend" hidden>
+      <div class="boas-vindas" id="atVazio" hidden>
+        <div class="bv-icone">✅</div>
+        <h2>Nenhum atendimento registrado no período</h2>
+        <p class="dica">No <b>Analisar</b>, depois de analisar uma RDM, clique em <b>“Registrar atendimento”</b>. Ela entra aqui com data, tipo e para onde foi encaminhada.</p>
+        <div class="acoes" style="justify-content:center;margin-top:14px">
+          <button class="prim" id="btnAtIrAnalisar">Ir para o Analisar</button>
+          <label class="botao-arquivo">Importar atendimentos de colegas (CSV)<input type="file" accept=".csv" multiple hidden class="inAtCSV"></label>
+        </div>
+      </div>
+      <div class="kpis" id="kpisAt"></div>
+      <div class="dash-grade" id="gradeAt">
+        <div class="card span2"><div class="card-cab"><h3 id="tituloAtMes">Atendimentos por dia</h3><div class="legenda" id="legAt"></div></div><div id="chAt" class="chart"></div></div>
+        <div class="card"><div class="card-cab"><h3>Encaminhadas para</h3></div><div id="chAtDest" class="chart"></div></div>
+        <div class="card"><div class="card-cab"><h3>Sistemas</h3></div><div id="chAtApps" class="chart"></div></div>
+        <div class="card"><div class="card-cab"><h3>Por analista</h3></div><div id="chAtAnalista" class="chart"></div></div>
+        <div class="card"><div class="card-cab"><h3>Abertura por dia da semana</h3></div><div id="chAtSemana" class="chart"></div></div>
+        <div class="card span3">
+          <div class="card-cab"><h3>Atendimentos do período <span class="dica" id="atResumo"></span></h3>
+            <div class="acoes">
+              <input id="atBusca" placeholder="Filtrar ID, título, analista…" style="width:220px;margin:0">
+              <button class="prim" id="btnAtExportar">⬇ Exportar CSV do período</button>
+              <label class="botao-arquivo">⬆ Importar de colegas<input type="file" accept=".csv" multiple hidden class="inAtCSV"></label>
+            </div>
+          </div>
+          <div class="tabela-wrap"><table class="tabela" id="tabAt"></table></div>
+        </div>
+      </div>
+    </div><!-- /visao-atend -->
   </section>
 
   <!-- ================= ANALISAR ================= -->
@@ -223,6 +268,7 @@
 <script src="js/core.js"></script>
 <script src="js/historico-base.js"></script>
 <script src="js/history.js"></script>
+<script src="js/atendimentos.js"></script>
 <script src="js/app.js"></script>
 <script src="js/dashboard.js"></script>
 </body>

@@ -33,3 +33,10 @@ Toda recomendação mostra o **motivo**, os **alertas** e uma comparação com o
 - Textos das mensagens e passos: `montarSaida()` em `js/app.js`.
 
 Dicas: `index.html#analisar` abre direto na aba Analisar; `index.html?estatico` desliga as animações (bom para print/apresentação).
+
+## Dois painéis no Dashboard
+- **📊 Histórico GLPI** — as RDMs importadas do CSV do GLPI (referência para as análises).
+- **✅ Meus atendimentos** — cada RDM que você registra no Analisar (botão **Registrar atendimento**). Mostra quantas por dia/mês, por tipo, para onde foram encaminhadas, por sistema e por analista, e o **acerto do assistente** (% sem correção manual).
+- Filtro de datas: Este mês, Mês passado, 30/90 dias, 12 meses, Tudo ou intervalo **De/Até**.
+- **Exportar CSV do período** gera o relatório do mês; **Importar de colegas** junta os atendimentos da equipe (cada um exporta o seu).
+- Link direto: `index.html#atendimentos`.
