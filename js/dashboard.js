@@ -15,6 +15,8 @@ const TIPOS_STACK = [
   { tipo: 'Padrão', cor: 'var(--padrao)', cls: 'padrao' },
   { tipo: 'Emergencial', cor: 'var(--emerg)', cls: 'emergencial' },
 ];
+const TIPOS_LEITURA = ['Padrão', 'Normal', 'Emergencial'].map(t => TIPOS_STACK.find(x => x.tipo === t));
+const legendaTipos = extra => TIPOS_LEITURA.map(t => `<span class="chip"><i class="c-${t.cls}"></i>${t.tipo}</span>`).join('') + (extra || '');
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const MESES_LONGO = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
@@ -22,7 +24,8 @@ function dataBR(s) {           // "dd-mm-yyyy hh:mm"
   const m = String(s || '').match(/(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
   return m ? new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)) : null;
 }
-const cancelada = r => /cancel|recus/i.test(r.status || '');
+const ehCancelada = r => /cancel|recus/i.test(r.status || '');
+const cancelada = r => !r._contar && ehCancelada(r);   // _contar = "Incluir canceladas" ligado
 const fmt = n => n.toLocaleString('pt-BR');
 const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
 const curtoGrupo = g => String(g || '').replace(/^CIA > DISTI > /, '').replace(/^CGGT > /, '');
@@ -80,7 +83,7 @@ function sincronizarControlesPeriodo() {
 }
 
 /* ---------- dados ---------- */
-function dadosGLPI() { return Historico.dados.map(r => ({ ...r, dt: dataBR(r.abertura), dtFim: dataBR(r.atualizacao) })).filter(r => r.dt); }
+function dadosGLPI() { return Historico.dados.map(r => ({ ...r, dt: dataBR(r.abertura), dtFim: dataBR(r.atualizacao), _contar: !!DASH.incluirCanc })).filter(r => r.dt); }
 function dadosAtend() { return Atendimentos.lista.map(r => ({ ...r, dt: new Date(r.quando), status: '' })).filter(r => !isNaN(r.dt)); }
 
 /* ---------- KPIs ---------- */
@@ -109,15 +112,17 @@ function kpisGLPI(L) {
   const validas = L.filter(r => !cancelada(r));
   const tip = t => validas.filter(r => r.tipo === t).length;
   const p = tip('Padrão'), n = tip('Normal'), em = tip('Emergencial'), tipadas = p + n + em;
-  const canc = L.length - validas.length;
+  const canc = L.filter(ehCancelada).length;
+  const cancDo = t => L.filter(r => ehCancelada(r) && r.tipo === t).length;
+  const extraCanc = t => (DASH.incluirCanc ? ` · inclui ${fmt(cancDo(t))} canceladas` : (cancDo(t) ? ` · +${fmt(cancDo(t))} canceladas` : ''));
   const dias = validas.filter(r => /fechado/i.test(r.status) && r.dtFim).map(r => (r.dtFim - r.dt) / 864e5).filter(d => d >= 0).sort((a, b) => a - b);
   const mediana = dias.length ? dias[Math.floor(dias.length / 2)] : 0;
   desenharKpis('kpis', [
-    { rot: 'RDMs no período', num: L.length, det: `${fmt(validas.length)} válidas`, kc: 'var(--grad)' },
-    { rot: 'Padrão', num: p, det: `${pct(p, tipadas)}% das tipadas`, kc: 'var(--padrao)' },
-    { rot: 'Normal', num: n, det: `${pct(n, tipadas)}% das tipadas`, kc: 'var(--normal)' },
-    { rot: 'Emergencial', num: em, det: `${pct(em, tipadas)}% das tipadas`, kc: 'var(--emerg)' },
-    { rot: 'Canceladas', num: canc, det: `${pct(canc, L.length)}% do total`, kc: 'var(--req)' },
+    { rot: 'RDMs no período', num: L.length, det: `${fmt(L.length - canc)} não canceladas`, kc: 'var(--grad)' },
+    { rot: 'Padrão', num: p, det: `${pct(p, tipadas)}% das tipadas` + extraCanc('Padrão'), kc: 'var(--padrao)' },
+    { rot: 'Normal', num: n, det: `${pct(n, tipadas)}% das tipadas` + extraCanc('Normal'), kc: 'var(--normal)' },
+    { rot: 'Emergencial', num: em, det: `${pct(em, tipadas)}% das tipadas` + extraCanc('Emergencial'), kc: 'var(--emerg)' },
+    { rot: 'Canceladas', num: canc, det: `${pct(canc, L.length)}% do total` + (DASH.incluirCanc ? ' · incluídas nos números' : ' · fora dos números'), kc: 'var(--req)' },
     { rot: 'Lead time (mediana)', num: Math.round(mediana * 10) / 10, suf: ' d', det: 'abertura → última atualização (fechadas)', kc: 'var(--a3)' },
   ]);
 }
@@ -170,8 +175,7 @@ function baldes(L, iv) {
 function renderEmpilhado(L, iv, chId, legId, rotUnidade, nomeItem = 'RDMs', outrosNome = 'Outros') {
   const el = document.getElementById(chId);
   const { lista, unidade } = baldes(L, iv);
-  document.getElementById(legId).innerHTML = [...TIPOS_STACK].reverse().map(t => `<span><i class="c-${t.cls}"></i>${t.tipo}</span>`).join('')
-    + (lista.some(b => b.outros) ? `<span><i class="c-outro"></i>${outrosNome}</span>` : '');
+  document.getElementById(legId).innerHTML = legendaTipos(lista.some(b => b.outros) ? `<span class="chip"><i class="c-outro"></i>${outrosNome}</span>` : '');
   if (rotUnidade) document.getElementById(rotUnidade.id).textContent = rotUnidade.prefixo + ' ' + unidade;
   if (!lista.some(b => b.total)) { el.innerHTML = vazioChart; return unidade; }
   const W = 760, H = 270, pad = { l: 34, r: 8, t: 22, b: 28 };
@@ -203,7 +207,7 @@ function renderEmpilhado(L, iv, chId, legId, rotUnidade, nomeItem = 'RDMs', outr
     svg += `<g class="barra-anim" style="animation-delay:${i * 20}ms">${segs}</g>`;
     if (b.total && (mostrarTodos || i === imax)) svg += `<text class="val" x="${cx}" y="${y(b.total) - 7}" text-anchor="middle">${b.total}</text>`;
     if (i % cadaRot === 0) svg += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${b.rot}</text>`;
-    const tip = tipId(`<div class="tt">${esc(b.rot)} · ${b.total} ${nomeItem}</div>` + [...TIPOS_STACK].reverse().map(t => linhaTip(t.cor, t.tipo, b[t.tipo])).join('')
+    const tip = tipId(`<div class="tt">${esc(b.rot)} · ${b.total} ${nomeItem}</div>` + TIPOS_LEITURA.map(t => linhaTip(t.cor, t.tipo, b[t.tipo])).join('')
       + (b.outros ? linhaTip('var(--req)', outrosNome, b.outros) : ''));
     svg += `<rect class="hit" data-tip="${tip}" x="${pad.l + bw * i}" y="${pad.t}" width="${bw}" height="${ih}"/>`;
   });
@@ -255,7 +259,7 @@ function renderSemana(L, id, rotulo) {
 /* ---------- mix de tipo por categoria (100% empilhado) ---------- */
 function renderCategorias(L) {
   const el = document.getElementById('chCat');
-  document.getElementById('legCat').innerHTML = [...TIPOS_STACK].reverse().map(t => `<span><i class="c-${t.cls}"></i>${t.tipo}</span>`).join('');
+  document.getElementById('legCat').innerHTML = legendaTipos();
   const cats = {};
   for (const r of L) {
     if (cancelada(r) || !r.categoria) continue;
@@ -281,7 +285,7 @@ function renderCategorias(L) {
     });
     svg += `<text x="${labW - 12}" y="${yy + 13}" text-anchor="end">${esc(nome.length > 52 ? nome.slice(0, 51) + '…' : nome)}</text>
       <text class="val" x="${W - valW + 10}" y="${yy + 13}">${fmt(c.total)}</text>
-      <rect class="hit" data-tip="${tipId(`<div class="tt">${esc(nome)}</div>` + [...TIPOS_STACK].reverse().map(t => linhaTip(t.cor, t.tipo, `${c[t.tipo]} (${pct(c[t.tipo], c.total)}%)`)).join(''))}" x="0" y="${yy - 7}" width="${W}" height="${linha}"/>`;
+      <rect class="hit" data-tip="${tipId(`<div class="tt">${esc(nome)}</div>` + TIPOS_LEITURA.map(t => linhaTip(t.cor, t.tipo, `${c[t.tipo]} (${pct(c[t.tipo], c.total)}%)`)).join(''))}" x="0" y="${yy - 7}" width="${W}" height="${linha}"/>`;
   });
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Mix de tipo de mudança por categoria">${svg}</svg>`;
 }
@@ -422,6 +426,7 @@ function renderDashboard() {
 }
 
 /* ---------- eventos ---------- */
+document.getElementById('incluirCanc').addEventListener('change', e => { DASH.incluirCanc = e.target.checked; renderDashboard(); });
 document.querySelectorAll('[data-visao]').forEach(b => b.addEventListener('click', () => { DASH.visao = b.dataset.visao; renderDashboard(); }));
 document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
   DASH.filtro[DASH.visao] = { preset: b.dataset.periodo };

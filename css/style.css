@@ -303,3 +303,9 @@ input[type=file][hidden] { display: none !important; }
 .resumo-analista th:not(:first-child) { text-align: center; }
 .mini-barra { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: rgba(148, 163, 205, .12); margin-right: 8px; vertical-align: middle; overflow: hidden; }
 .mini-barra span { display: block; height: 100%; background: var(--grad); border-radius: 3px; }
+
+/* legenda sem ambiguidade: cor + nome dentro da mesma etiqueta */
+.legenda .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 99px; background: rgba(255, 255, 255, .04); border: 1px solid var(--borda); color: var(--txt); }
+.legenda .chip i { margin: 0; }
+label.chk { display: inline-flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; color: var(--txt); font-weight: 600; }
+label.chk input { margin: 0; }
