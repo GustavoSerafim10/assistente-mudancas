@@ -196,9 +196,14 @@ function atendimentoDaAnalise(d, tipo) {
   };
 }
 
+const nomePreenchido = () => !!cfg.meuNome && !cfg.meuNome.trim().startsWith('(');
+
 /* bloco abaixo do veredito: registrar o atendimento (vai para o painel "Meus atendimentos") */
 function blocoSalvarHist(d, tipo) {
   if (!d.info.numero) return `<div class="salvar-hist"><span class="dica">Para registrar o atendimento, coloque o número da RDM no título — ex.: "… (2026100053)".</span></div>`;
+  // sem nome, o atendimento iria para o levantamento como "(seu nome…)" e não daria para saber de quem é
+  if (!nomePreenchido()) return `<div class="salvar-hist corrigido"><span class="dica">Para registrar o atendimento, preencha <b>Seu nome</b> em Config — é ele que identifica você no levantamento da equipe.</span>
+      <button data-acao="irConfig" class="prim">Ir para Config</button></div>`;
   const reg = Atendimentos.doAnalista(d.info.numero, cfg.meuNome);
   const corrigido = tipo !== d.tipo;
   if (reg) {
@@ -336,7 +341,12 @@ $('#resultado').addEventListener('click', e => {
   const ac = e.target.closest('[data-acao]');
   if (ac && ultimo) {
     const tipo = override || ultimo.tipo;
+    if (ac.dataset.acao === 'irConfig') {
+      document.querySelector('.aba[data-aba="config"]').click();
+      return document.querySelector('#cfgMeuNome').focus();
+    }
     if (ac.dataset.acao === 'registrar') {
+      if (!nomePreenchido()) return toast('Preencha Seu nome em Config antes de registrar');
       const at = atendimentoDaAnalise(ultimo, tipo);
       const ok = Atendimentos.registrar(at);
       // só a CORREÇÃO vai para o histórico de referência; concordar com o assistente não acrescenta nada lá
