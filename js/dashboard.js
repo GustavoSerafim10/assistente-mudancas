@@ -6,6 +6,7 @@
 
 const DASH = {
   visao: 'glpi',
+  incluirCanc: true,   // conta todas as RDMs, qualquer status (controle completo dos tipos)
   tips: [],
   filtro: { glpi: { preset: '365' }, atend: { preset: 'mes' } },   // cada painel lembra o próprio período
 };

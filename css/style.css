@@ -314,3 +314,16 @@ label.chk input { margin: 0; }
 .como-exportar summary { color: var(--sub); font-size: .85rem; }
 .como-exportar ol { margin: 8px 0 0; padding-left: 20px; color: var(--sub); font-size: .85rem; }
 .como-exportar li { margin-bottom: 4px; }
+
+/* aba Chamados */
+.matriz th:not(:first-child):not(:nth-child(2)) { text-align: center; }
+.matriz .celula { font-weight: 700; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 6px; color: var(--txt); }
+.matriz .celula:hover, .matriz .celula.sel { background: rgba(139, 92, 246, .22); }
+.matriz .zero { color: var(--mudo); }
+.matriz tr.total td { border-top: 1px solid var(--borda-forte); }
+.num-cel { text-align: center; font-variant-numeric: tabular-nums; }
+.dias { font-weight: 650; }
+.dias.normal { color: var(--normal-txt); }
+.dias.emerg { color: var(--emerg-txt); }
+#chAlerta[hidden] { display: none; }
+#chAlerta { margin-bottom: 14px; }

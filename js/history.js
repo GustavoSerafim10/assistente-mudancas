@@ -93,7 +93,7 @@ const Historico = {
   },
   combinar() {
     const map = new Map();
-    for (const r of (this.base ? this.base.registros : [])) map.set(r.id, r);
+    if (!this.baseDesativada()) for (const r of (this.base ? this.base.registros : [])) map.set(r.id, r);
     for (const r of this.locais) map.set(r.id, r);           // importação local é mais recente: prevalece
     this.dados = [...map.values()].sort((a, b) => b.id.localeCompare(a.id));
   },
@@ -123,6 +123,15 @@ const Historico = {
     return this.salvar();
   },
   limpar() { this.locais = []; try { localStorage.removeItem(HIST_KEY); } catch { } this.combinar(); },
+  /* "Apagar tudo": tira as importações E desliga a base embutida (o arquivo não pode ser apagado pelo navegador,
+     então fica guardado um aviso "não usar a base" neste navegador). Dá para desfazer com restaurarBase(). */
+  baseDesativada() { try { return localStorage.getItem(HIST_KEY + '.semBase') === '1'; } catch { return false; } },
+  apagarTudo() {
+    this.locais = [];
+    try { localStorage.removeItem(HIST_KEY); localStorage.setItem(HIST_KEY + '.semBase', '1'); } catch { }
+    this.combinar();
+  },
+  restaurarBase() { try { localStorage.removeItem(HIST_KEY + '.semBase'); } catch { } this.combinar(); },
 };
 
 /* ---------- títulos parecidos (para casos sem regra) ---------- */

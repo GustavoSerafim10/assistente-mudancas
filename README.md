@@ -40,3 +40,10 @@ Dicas: `index.html#analisar` abre direto na aba Analisar; `index.html?estatico` 
 - Filtro de datas: Este mês, Mês passado, 30/90 dias, 12 meses, Tudo ou intervalo **De/Até**.
 - **Exportar CSV do período** gera o relatório do mês; **Importar de colegas** junta os atendimentos da equipe (cada um exporta o seu).
 - Link direto: `index.html#atendimentos`.
+
+## Aba Chamados (status × tipo)
+- Todas as RDMs do histórico, **qualquer status**: Em andamento, Fechados, Cancelados/Recusados e Todos.
+- Tabela **Status × Tipo** em que cada RDM aparece uma vez — linhas e colunas somam o total (bate com o GLPI). Clique num número para listar aquelas RDMs.
+- Em andamento lista as **mais antigas primeiro**, com dias em aberto (amarelo ≥ 30, vermelho ≥ 60).
+- Filtro por data de abertura, tipo e busca; exporta a tabela e a lista em CSV.
+- **🗑 Apagar tudo** (aba Histórico) zera o histórico deste navegador, inclusive a base embutida — para recomeçar com a exportação completa do GLPI (Status = Todos, "Todas as páginas"). Os atendimentos não são apagados.

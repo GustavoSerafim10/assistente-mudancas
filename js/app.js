@@ -402,6 +402,11 @@ function atualizarBadge() {
   b.querySelector('span').textContent = n ? `${n.toLocaleString('pt-BR')} mudanças na base` : 'Histórico não carregado';
   b.classList.toggle('ok', !!n);
   const base = Historico.base;
+  if (base && Historico.baseDesativada()) {
+    $('#infoBase').innerHTML = `Base embutida do projeto (${base.registros.length} mudanças) <b>desativada</b> neste navegador — o histórico usa só o que você importar. <button class="link" id="btnRestaurarBase">restaurar base embutida</button>`;
+    $('#btnRestaurarBase').onclick = () => { Historico.restaurarBase(); atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard(); if (typeof renderChamados === 'function') renderChamados(); };
+    return;
+  }
   $('#infoBase').innerHTML = base
     ? `Base embutida no projeto: <b>${base.registros.length}</b> mudanças (gerada em ${new Date(base.geradoEm).toLocaleString('pt-BR')}).`
       + (Historico.locais.length ? ` Importadas neste navegador: <b>${Historico.locais.length}</b>.` : ' Só importe se quiser incluir mudanças mais novas.')
@@ -438,7 +443,7 @@ $('#inCSV').addEventListener('change', async e => {
   $('#avisosCSV').innerHTML = avisos.map(a => `<li>⚠️ ${a}</li>`).join('');
   $('#avisosCSV').hidden = !avisos.length;
   if (avisos.length) toast('Importado — mas o arquivo parece incompleto (veja o aviso)');
-  atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard();
+  atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard(); if (typeof renderChamados === 'function') renderChamados();
   if (ultimo) renderResultado();
 });
 $('#btnExportarHist').addEventListener('click', () => {
@@ -449,7 +454,19 @@ $('#btnExportarHist').addEventListener('click', () => {
   toast(`${lista.length.toLocaleString('pt-BR')} mudanças exportadas`);
 });
 $('#btnLimparHist').addEventListener('click', () => {
-  const n = Historico.locais.length, base = Historico.base ? Historico.base.registros.length : 0;
+  const n = Historico.locais.length, base = Historico.base && !Historico.baseDesativada() ? Historico.base.registros.length : 0;
+  if (n || base) {
+    const total = Historico.dados.length;
+    if (!confirm(`Apagar TODO o histórico deste navegador (${total.toLocaleString('pt-BR')} mudanças)?\n\n` +
+      (base ? `Inclui a base embutida do projeto (${base.toLocaleString('pt-BR')}) — ela deixa de ser usada aqui; dá para restaurar depois.\n` : '') +
+      `Os "Meus atendimentos" NÃO são apagados.\n\nDepois, importe a exportação completa do GLPI.`)) return;
+    Historico.apagarTudo(); atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderChamados === 'function') renderChamados();
+    $('#avisosCSV').hidden = true;
+    $('#msgHist').textContent = `✓ Histórico zerado (${total.toLocaleString('pt-BR')} mudanças apagadas). Agora importe a exportação completa do GLPI.`;
+    toast('Histórico apagado');
+    return;
+  }
   if (!n) {
     $('#msgHist').textContent = base
       ? `Não há importações neste navegador para apagar — as ${base.toLocaleString('pt-BR')} mudanças que aparecem são da base embutida no projeto (arquivo da sua máquina).`
