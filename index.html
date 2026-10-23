@@ -172,11 +172,13 @@
     <div class="card">
       <h2>Base histórica</h2>
       <p>Importe a exportação CSV de <b>Mudanças</b> do GLPI (pode importar vários arquivos — os IDs repetidos são atualizados). Fica salvo neste navegador.</p>
+      <p class="dica">O <b>Exportar</b> gera o mesmo formato do GLPI (respeitando os filtros da tabela abaixo) — serve de backup ou para passar a base a um colega. É dado interno: compartilhe só pelos canais da PRF.</p>
       <p id="infoBase" class="dica"></p>
       <div class="acoes">
         <label class="botao-arquivo prim">Importar CSV do GLPI
           <input id="inCSV" type="file" accept=".csv,text/csv" multiple hidden>
         </label>
+        <button id="btnExportarHist">⬇ Exportar CSV</button>
         <button id="btnLimparHist" class="perigo">Apagar importações deste navegador</button>
         <span id="msgHist" class="dica"></span>
       </div>

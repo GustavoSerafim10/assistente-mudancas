@@ -48,7 +48,7 @@ function csvParaRegistros(text) {
   const ix = {
     id: col('id'), titulo: col('titulo'), status: col('status'), atualizacao: col('ultima atualizacao'),
     abertura: col('data de abertura'), categoria: col('categoria'), atribuido: col('atribuido'),
-    tarefas: col('numero de tarefas'), tipo: col('tipo da mudanca', 'tipomudanca'), obs: col('grupo observador', 'observador'),
+    tarefas: col('numero de tarefas'), tipo: col('tipo da mudanca', 'tipomudanca'), obs: col('grupo observador', 'observador'), origem: col('origem (assistente)'),
   };
   // "categoria" também casa com "Tarefas - Categoria": força a primeira coluna exata
   ix.categoria = head.findIndex(h => h === 'categoria');
@@ -62,8 +62,20 @@ function csvParaRegistros(text) {
       categoria: g(r, ix.categoria), atribuido: splitBr(g(r, ix.atribuido)), tarefas: +g(r, ix.tarefas) || 0,
       tipo: normTipo(g(r, ix.tipo)), obs: splitBr(g(r, ix.obs)),
       app: appFromTitle(titulo), ambiente: detectarAmbiente(titulo),
+      ...(/assistente/i.test(g(r, ix.origem)) ? { origem: 'assistente' } : {}),
     };
   }).filter(r => r.id);
+}
+
+/* ---------- exportar no mesmo formato da exportação do GLPI (reimportável) ---------- */
+function registrosParaCSV(lista) {
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const cab = ['ID', 'Título', 'Status', 'Última atualização', 'Data de abertura', 'Categoria', 'Atribuído - Grupo técnico',
+    'Tarefas - Número de tarefas', 'Plug-ins - TipoMudanca - Tipo da Mudança', 'Observador - Grupo observador', 'Origem (assistente)'];
+  const linhas = [cab.map(q).join(';')];
+  for (const r of lista) linhas.push([r.id, r.titulo, r.status, r.atualizacao, r.abertura, r.categoria, (r.atribuido || []).join('<br>'),
+    r.tarefas, r.tipo, (r.obs || []).join('<br>'), r.origem === 'assistente' ? 'assistente' : ''].map(q).join(';'));
+  return '﻿' + linhas.join('\r\n');
 }
 
 /* ---------- armazenamento local ---------- */

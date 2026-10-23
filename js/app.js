@@ -423,6 +423,13 @@ $('#inCSV').addEventListener('change', async e => {
   atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard();
   if (ultimo) renderResultado();
 });
+$('#btnExportarHist').addEventListener('click', () => {
+  const lista = historicoFiltrado();
+  if (!lista.length) { toast('Nada para exportar com esses filtros'); return; }
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  baixarArquivo(`mudancas_glpi_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.csv`, registrosParaCSV(lista));
+  toast(`${lista.length.toLocaleString('pt-BR')} mudanças exportadas`);
+});
 $('#btnLimparHist').addEventListener('click', () => {
   if (!confirm('Apagar as importações feitas neste navegador? (A base embutida no projeto continua.)')) return;
   Historico.limpar(); atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard();
@@ -435,14 +442,24 @@ function preencherFiltros() {
 }
 ['#fTexto', '#fTipo', '#fStatus', '#fCat'].forEach(s => $(s).addEventListener('input', renderHistorico));
 
+/* lista do Histórico com os filtros da tela aplicados (a mesma que a exportação usa) */
+function historicoFiltrado() {
+  const q = norm($('#fTexto').value), ft = $('#fTipo').value, fs = $('#fStatus').value, fc = $('#fCat').value;
+  return Historico.dados.filter(r => (!ft || r.tipo === ft) && (!fs || r.status === fs) && (!fc || r.categoria === fc)
+    && (!q || norm(r.id + ' ' + r.titulo + ' ' + r.app + ' ' + r.obs.join(' ') + ' ' + (r.origem === 'assistente' ? 'via assistente' : '')).includes(q)));
+}
+
 function renderHistorico() {
   const H = Historico.dados;
-  if (!H.length) { $('#tabHist').innerHTML = ''; $('#resumoHist').innerHTML = 'Nenhuma mudança carregada ainda.'; return; }
-  const q = norm($('#fTexto').value), ft = $('#fTipo').value, fs = $('#fStatus').value, fc = $('#fCat').value;
-  const lista = H.filter(r => (!ft || r.tipo === ft) && (!fs || r.status === fs) && (!fc || r.categoria === fc)
-    && (!q || norm(r.id + ' ' + r.titulo + ' ' + r.app + ' ' + r.obs.join(' ') + ' ' + (r.origem === 'assistente' ? 'via assistente' : '')).includes(q)));
+  const filtrando = ['#fTexto', '#fTipo', '#fStatus', '#fCat'].some(s => $(s).value);
+  $('#btnExportarHist').disabled = !H.length;
+  if (!H.length) { $('#tabHist').innerHTML = ''; $('#resumoHist').innerHTML = 'Nenhuma mudança carregada ainda.'; $('#btnExportarHist').textContent = '⬇ Exportar CSV'; return; }
+  const lista = historicoFiltrado();
+  $('#btnExportarHist').textContent = filtrando ? `⬇ Exportar CSV (${lista.length.toLocaleString('pt-BR')} filtradas)` : `⬇ Exportar CSV (todas as ${H.length.toLocaleString('pt-BR')})`;
   const st = estatisticas(lista);
-  $('#resumoHist').innerHTML = `${lista.length} de ${H.length} mudanças` + (st.totalTipado ? barraTipos(st.porTipo, st.totalTipado) : '');
+  $('#resumoHist').innerHTML = `${lista.length} de ${H.length} mudanças`
+    + (st.cancelados ? ` · <b>${st.cancelados}</b> canceladas/recusadas ficam <b>fora</b> da barra (veja com o filtro de status)` : '')
+    + (st.totalTipado ? barraTipos(st.porTipo, st.totalTipado) : '');
   const max = 400;
   $('#tabHist').innerHTML = `<tr><th>ID</th><th>Título</th><th>Sistema</th><th>Tipo</th><th>Status</th><th>Abertura</th><th>Tarefas</th><th>Observadores (grupo)</th></tr>` +
     lista.slice(0, max).map(r => `<tr><td>${esc(r.id)}</td><td>${esc(r.titulo)}<div class="grupos">${esc(r.categoria)}</div></td><td>${esc(r.app)}</td>
