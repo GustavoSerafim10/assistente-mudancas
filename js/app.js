@@ -431,8 +431,20 @@ $('#btnExportarHist').addEventListener('click', () => {
   toast(`${lista.length.toLocaleString('pt-BR')} mudanças exportadas`);
 });
 $('#btnLimparHist').addEventListener('click', () => {
-  if (!confirm('Apagar as importações feitas neste navegador? (A base embutida no projeto continua.)')) return;
+  const n = Historico.locais.length, base = Historico.base ? Historico.base.registros.length : 0;
+  if (!n) {
+    $('#msgHist').textContent = base
+      ? `Não há importações neste navegador para apagar — as ${base.toLocaleString('pt-BR')} mudanças que aparecem são da base embutida no projeto (arquivo da sua máquina).`
+      : 'Não há importações neste navegador para apagar.';
+    return;
+  }
+  const aviso = base
+    ? `Apagar as ${n.toLocaleString('pt-BR')} mudanças importadas neste navegador?\n\nA base embutida do projeto (${base.toLocaleString('pt-BR')} mudanças) continua — ela vem do arquivo da sua máquina, não do navegador.`
+    : `Apagar as ${n.toLocaleString('pt-BR')} mudanças importadas neste navegador? O histórico ficará vazio.`;
+  if (!confirm(aviso)) return;
   Historico.limpar(); atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard();
+  $('#msgHist').textContent = `✓ ${n.toLocaleString('pt-BR')} importações apagadas.` + (base ? ` Ficou só a base embutida (${base.toLocaleString('pt-BR')}).` : ' Histórico vazio.');
+  toast('Importações apagadas');
 });
 
 function preencherFiltros() {
