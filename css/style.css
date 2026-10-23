@@ -290,3 +290,16 @@ details summary { cursor: pointer; font-weight: 600; }
 .intervalo input { margin: 0; padding: 6px 10px; width: auto; color-scheme: dark; }
 #visao-glpi[hidden], #visao-atend[hidden], #kpisAt[hidden], #gradeAt[hidden] { display: none; }
 input[type=file][hidden] { display: none !important; }
+
+/* filtro e resumo por analista */
+.barra-analista { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: -6px 0 16px; }
+.barra-analista[hidden] { display: none; }
+.barra-analista label { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--sub); }
+.barra-analista select { margin: 0; width: auto; min-width: 240px; padding: 7px 10px; }
+.resumo-analista tr[data-analista] { cursor: pointer; }
+.resumo-analista tr.sel td { background: rgba(139, 92, 246, .14); }
+.resumo-analista tr.total td { border-top: 1px solid var(--borda-forte); color: var(--sub); }
+.resumo-analista .num-cel { text-align: center; font-variant-numeric: tabular-nums; }
+.resumo-analista th:not(:first-child) { text-align: center; }
+.mini-barra { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: rgba(148, 163, 205, .12); margin-right: 8px; vertical-align: middle; overflow: hidden; }
+.mini-barra span { display: block; height: 100%; background: var(--grad); border-radius: 3px; }

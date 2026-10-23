@@ -95,6 +95,10 @@
           <label class="botao-arquivo">Importar atendimentos de colegas (CSV)<input type="file" accept=".csv" multiple hidden class="inAtCSV"></label>
         </div>
       </div>
+      <div class="barra-analista" id="barraAnalista">
+        <label>Analista <select id="atAnalista"></select></label>
+        <span class="dica" id="atAnalistaInfo"></span>
+      </div>
       <div class="kpis" id="kpisAt"></div>
       <div class="dash-grade" id="gradeAt">
         <div class="card span2"><div class="card-cab"><h3 id="tituloAtMes">Atendimentos por dia</h3><div class="legenda" id="legAt"></div></div><div id="chAt" class="chart"></div></div>
@@ -102,6 +106,12 @@
         <div class="card"><div class="card-cab"><h3>Sistemas</h3></div><div id="chAtApps" class="chart"></div></div>
         <div class="card"><div class="card-cab"><h3>Por analista</h3></div><div id="chAtAnalista" class="chart"></div></div>
         <div class="card"><div class="card-cab"><h3>Abertura por dia da semana</h3></div><div id="chAtSemana" class="chart"></div></div>
+        <div class="card span3">
+          <div class="card-cab"><h3>Resumo por analista <span class="dica">— período selecionado, equipe toda</span></h3>
+            <button id="btnAtResumoCSV">⬇ Exportar resumo</button>
+          </div>
+          <div class="tabela-wrap"><table class="tabela resumo-analista" id="tabAtResumo"></table></div>
+        </div>
         <div class="card span3">
           <div class="card-cab"><h3>Atendimentos do período <span class="dica" id="atResumo"></span></h3>
             <div class="acoes">

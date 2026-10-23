@@ -315,6 +315,52 @@ function renderTabelaAt(L) {
       : `<tr><td colspan="7" class="dica">Nenhum atendimento ${q ? 'com esse filtro' : 'no período'}.</td></tr>`);
 }
 
+/* ---------- filtro e resumo por analista ---------- */
+DASH.analista = '';   // '' = equipe toda; senão, nome normalizado
+const nomeAnalista = (L, chave) => (L.find(r => norm(r.analista) === chave) || {}).analista || chave;
+const filtrarAnalista = L => (DASH.analista ? L.filter(r => norm(r.analista) === DASH.analista) : L);
+function atendFiltrados() { return filtrarAnalista(noIntervalo(dadosAtend(), intervaloAtual())); }
+
+function preencherAnalistas(Lequipe) {
+  const sel = document.getElementById('atAnalista');
+  const eu = typeof cfg !== 'undefined' ? norm(cfg.meuNome) : '';
+  const nomes = [...new Map(Lequipe.map(r => [norm(r.analista), r.analista])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  if (DASH.analista && !nomes.some(([k]) => k === DASH.analista)) DASH.analista = '';   // analista sem registros no período
+  sel.innerHTML = `<option value="">Equipe toda (${nomes.length})</option>` +
+    (eu && nomes.some(([k]) => k === eu) ? `<option value="${esc(eu)}">Só eu</option>` : '') +
+    nomes.filter(([k]) => k !== eu).map(([k, n]) => `<option value="${esc(k)}">${esc(n)}</option>`).join('');
+  sel.value = DASH.analista;
+  document.getElementById('atAnalistaInfo').textContent = DASH.analista ? 'KPIs, gráficos e tabela mostram só este analista. O resumo abaixo continua com a equipe toda.' : '';
+}
+
+function resumoPorAnalista(Lequipe) {
+  const m = new Map();
+  for (const r of Lequipe) {
+    const k = norm(r.analista);
+    const s = m.get(k) || { analista: r.analista, total: 0, 'Padrão': 0, Normal: 0, Emergencial: 0, 'Requisição': 0, corrigidas: 0, dias: new Set() };
+    s.total++; if (s[r.tipo] != null) s[r.tipo]++; if (r.corrigido) s.corrigidas++; s.dias.add(isoDia(r.dt));
+    m.set(k, s);
+  }
+  return [...m.values()].sort((a, b) => b.total - a.total);
+}
+
+function renderResumoAnalistas(Lequipe) {
+  const linhas = resumoPorAnalista(Lequipe);
+  const tot = linhas.reduce((a, s) => { for (const k of ['total', 'Padrão', 'Normal', 'Emergencial', 'Requisição', 'corrigidas']) a[k] += s[k]; return a; },
+    { total: 0, 'Padrão': 0, Normal: 0, Emergencial: 0, 'Requisição': 0, corrigidas: 0 });
+  const max = Math.max(1, ...linhas.map(s => s.total));
+  const celulaTipo = (s, t, cls) => `<td class="num-cel"><span class="pill ${cls}">${s[t]}</span></td>`;
+  const acerto = s => (s.total ? pct(s.total - s.corrigidas, s.total) + '%' : '—');
+  document.getElementById('tabAtResumo').innerHTML =
+    `<tr><th>Analista</th><th>Atendimentos</th><th>Padrão</th><th>Normal</th><th>Emergencial</th><th>Devolvidas</th><th>Dias com registro</th><th>Média/dia</th><th>Acerto do assistente</th></tr>` +
+    linhas.map(s => `<tr class="${norm(s.analista) === DASH.analista ? 'sel' : ''}" data-analista="${esc(norm(s.analista))}" title="Clique para filtrar por este analista">
+      <td><b>${esc(s.analista)}</b></td>
+      <td><div class="mini-barra"><span style="width:${(s.total / max * 100).toFixed(1)}%"></span></div><b>${s.total}</b> <span class="dica">(${pct(s.total, tot.total)}%)</span></td>
+      ${celulaTipo(s, 'Padrão', 'padrao')}${celulaTipo(s, 'Normal', 'normal')}${celulaTipo(s, 'Emergencial', 'emergencial')}${celulaTipo(s, 'Requisição', 'requisicao')}
+      <td class="num-cel">${s.dias.size}</td><td class="num-cel">${(s.total / s.dias.size).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</td><td class="num-cel">${acerto(s)}</td></tr>`).join('') +
+    (linhas.length > 1 ? `<tr class="total"><td><b>Equipe</b></td><td><b>${tot.total}</b></td><td class="num-cel">${tot['Padrão']}</td><td class="num-cel">${tot.Normal}</td><td class="num-cel">${tot.Emergencial}</td><td class="num-cel">${tot['Requisição']}</td><td></td><td></td><td class="num-cel">${acerto(tot)}</td></tr>` : '');
+}
+
 /* ---------- principal ---------- */
 function renderDashboard() {
   if (!document.getElementById('kpis')) return;
@@ -352,14 +398,19 @@ function renderDashboard() {
     renderCategorias(L);
   } else {
     document.getElementById('dashTitulo').innerHTML = 'Meus <span class="grad">Atendimentos</span>';
-    const L = noIntervalo(dadosAtend(), iv);
-    const analistas = new Set(L.map(r => norm(r.analista))).size;
-    document.getElementById('dashSub').textContent = `${fmt(L.length)} atendimento${L.length === 1 ? '' : 's'} em ${periodoTxt}${analistas > 1 ? ` · ${analistas} analistas` : ''} · ${fmt(Atendimentos.lista.length)} registrados no total`;
-    const vazio = L.length === 0;
+    const Lequipe = noIntervalo(dadosAtend(), iv);
+    preencherAnalistas(Lequipe);
+    const L = filtrarAnalista(Lequipe);
+    const analistas = new Set(Lequipe.map(r => norm(r.analista))).size;
+    const quem = DASH.analista ? ` de ${nomeAnalista(Lequipe, DASH.analista)}` : '';
+    document.getElementById('dashSub').textContent = `${fmt(L.length)} atendimento${L.length === 1 ? '' : 's'}${quem} em ${periodoTxt}${!DASH.analista && analistas > 1 ? ` · ${analistas} analistas` : ''} · ${fmt(Atendimentos.lista.length)} registrados no total`;
+    const vazio = Lequipe.length === 0;
     document.getElementById('atVazio').hidden = !vazio;
+    document.getElementById('barraAnalista').hidden = vazio;
     document.getElementById('kpisAt').hidden = vazio;
     document.getElementById('gradeAt').hidden = vazio;
     if (vazio) return;
+    renderResumoAnalistas(Lequipe);
     kpisAtend(L);
     renderEmpilhado(L, iv, 'chAt', 'legAt', { id: 'tituloAtMes', prefixo: 'Atendimentos por' }, 'atendimentos', 'Devolvidas (requisição)');
     renderBarrasH('chAtDest', topN(contar(L, r => curtoGrupo(r.destino)), 8), 'atendimentos', 'var(--a2)');
@@ -382,13 +433,14 @@ document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('cli
 }));
 document.querySelectorAll('.aba').forEach(b => b.addEventListener('click', () => { if (b.dataset.aba === 'dashboard') renderDashboard(); }));
 
-document.getElementById('atBusca').addEventListener('input', () => { DASH.tips = []; renderTabelaAt(noIntervalo(dadosAtend(), intervaloAtual())); });
+document.getElementById('atBusca').addEventListener('input', () => { DASH.tips = []; renderTabelaAt(atendFiltrados()); });
 document.getElementById('btnAtIrAnalisar').addEventListener('click', () => document.querySelector('.aba[data-aba="analisar"]').click());
 document.getElementById('btnAtExportar').addEventListener('click', () => {
   const iv = intervaloAtual();
-  const L = noIntervalo(dadosAtend(), iv);
+  const L = atendFiltrados();   // respeita o filtro de analista ("Só eu" = exporta só os seus)
   const sufixo = iv.de ? isoDia(iv.de) + (iv.ate ? '_a_' + isoDia(iv.ate) : '') : 'tudo';
-  baixarArquivo(`atendimentos_${sufixo}.csv`, Atendimentos.paraCSV(L));
+  const quem = DASH.analista ? '_' + DASH.analista.replace(/[^a-z0-9]+/g, '-') : '_equipe';
+  baixarArquivo(`atendimentos${quem}_${sufixo}.csv`, Atendimentos.paraCSV(L));
 });
 document.querySelectorAll('.inAtCSV').forEach(inp => inp.addEventListener('change', async e => {
   const msgs = [];
@@ -400,6 +452,20 @@ document.querySelectorAll('.inAtCSV').forEach(inp => inp.addEventListener('chang
   toast(msgs.join(' · '));
   renderDashboard();
 }));
+document.getElementById('atAnalista').addEventListener('change', e => { DASH.analista = e.target.value; renderDashboard(); });
+document.getElementById('tabAtResumo').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-analista]'); if (!tr) return;
+  DASH.analista = DASH.analista === tr.dataset.analista ? '' : tr.dataset.analista;   // clicar de novo volta para a equipe
+  renderDashboard();
+});
+document.getElementById('btnAtResumoCSV').addEventListener('click', () => {
+  const iv = intervaloAtual(), linhas = resumoPorAnalista(noIntervalo(dadosAtend(), iv));
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const csv = [['Analista', 'Atendimentos', 'Padrão', 'Normal', 'Emergencial', 'Devolvidas (requisição)', 'Corrigidas manualmente', 'Dias com registro', 'Média por dia', 'Período'].map(q).join(';')]
+    .concat(linhas.map(s => [s.analista, s.total, s['Padrão'], s.Normal, s.Emergencial, s['Requisição'], s.corrigidas, s.dias.size,
+      (s.total / s.dias.size).toLocaleString('pt-BR', { maximumFractionDigits: 1 }), descreverIntervalo(iv)].map(q).join(';'))).join('\r\n');
+  baixarArquivo(`resumo_analistas_${iv.de ? isoDia(iv.de) : 'tudo'}.csv`, '﻿' + csv);
+});
 document.getElementById('tabAt').addEventListener('click', e => {
   const b = e.target.closest('[data-at-remover]');
   if (!b || !confirm(`Remover o atendimento da RDM ${b.dataset.atRemover}?`)) return;
