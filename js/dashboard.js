@@ -391,6 +391,11 @@ function renderDashboard() {
     document.getElementById('dashSub').textContent = temDados
       ? `${fmt(L.length)} RDMs em ${periodoTxt} · base de ${fmt(Historico.dados.length)} mudanças do GLPI${base ? ' · atualizada em ' + new Date(base.geradoEm).toLocaleDateString('pt-BR') : ''}`
       : 'Sem histórico — importe o CSV na aba Histórico.';
+    // base sem nenhuma RDM em andamento = exportação filtrada só com encerradas → números menores que o GLPI
+    const emAberto = Historico.dados.filter(r => r.status && !/fechad|cancel|recus|aplicad|encerrad|resolvid/i.test(r.status)).length;
+    const alerta = document.getElementById('alertaBase');
+    alerta.hidden = !temDados || emAberto > 0;
+    alerta.innerHTML = `⚠️ <b>A base não tem nenhuma RDM em andamento</b> (só Fechado/Cancelado). As Pendentes/abertas não estão sendo contadas — os números do mês ficam <b>menores que no GLPI</b>. Exporte do GLPI com <b>Status = Todos</b> e <b>“Todas as páginas”</b> e importe na aba Histórico.`;
     if (!temDados) return;
     kpisGLPI(L);
     renderEmpilhado(L, iv, 'chMes', 'legMes', { id: 'tituloMes', prefixo: 'RDMs por' }, 'RDMs');

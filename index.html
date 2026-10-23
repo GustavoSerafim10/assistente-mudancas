@@ -61,6 +61,7 @@
         <label class="chk"><input type="checkbox" id="incluirCanc"> Incluir canceladas/recusadas nos números</label>
         <span class="dica">Por padrão o painel conta só as RDMs que seguiram; as canceladas aparecem à parte em cada card.</span>
       </div>
+    <ul class="alertas"><li id="alertaBase" hidden></li></ul>
     <div class="boas-vindas" id="dashVazio" hidden>
       <div class="bv-icone">🚀</div>
       <h2>Bem-vindo! Bora configurar em 2 passos</h2>
@@ -182,6 +183,16 @@
         <button id="btnLimparHist" class="perigo">Apagar importações deste navegador</button>
         <span id="msgHist" class="dica"></span>
       </div>
+      <ul class="alertas" id="avisosCSV" style="margin-top:12px" hidden></ul>
+      <details class="como-exportar" style="margin-top:12px">
+        <summary>Como exportar do GLPI sem faltar RDM</summary>
+        <ol>
+          <li>Em <b>Assistência → Mudanças</b>, faça a pesquisa com <b>Status = Todos</b> (não use pesquisas salvas filtradas, como “RDM fechadas por mês” ou “RDM Abertas”).</li>
+          <li>Inclua as colunas: Título, Status, Última atualização, Data de abertura, Categoria, Atribuído – Grupo técnico, Tipo da Mudança e Observador – Grupo observador.</li>
+          <li>No menu de exportação, escolha <b>“Todas as páginas” em CSV</b> — “Página atual” traz só o que está na tela (ex.: 50 linhas).</li>
+          <li>Importe aqui. RDMs que já existiam são <b>atualizadas</b> (status/tipo novos), não duplicadas.</li>
+        </ol>
+      </details>
     </div>
     <div class="card">
       <div class="filtros">

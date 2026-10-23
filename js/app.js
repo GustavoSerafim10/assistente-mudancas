@@ -408,18 +408,36 @@ function atualizarBadge() {
     : 'Sem base embutida — importe o CSV ou rode o ATUALIZAR-BASE.bat.';
 }
 
+/* Sinais de exportação incompleta do GLPI (os dois casos já aconteceram):
+   - só a página atual (o arquivo tem exatamente o tamanho de uma página);
+   - pesquisa filtrada só com encerradas (nenhuma RDM em andamento). */
+const TAMANHOS_PAGINA_GLPI = [5, 10, 15, 20, 25, 30, 40, 50, 100, 200];
+function avisosDoCSV(nome, regs) {
+  const av = [];
+  if (TAMANHOS_PAGINA_GLPI.includes(regs.length))
+    av.push(`<b>${esc(nome)}</b> veio com exatamente <b>${regs.length}</b> linhas — o tamanho de uma página do GLPI. Provavelmente exportou só a <b>página atual</b>. No GLPI, use a exportação <b>“Todas as páginas”</b> (CSV).`);
+  const abertas = regs.filter(r => r.status && !/fechad|cancel|recus|aplicad|encerrad|resolvid/i.test(r.status)).length;
+  if (regs.length >= 20 && abertas === 0)
+    av.push(`<b>${esc(nome)}</b> só tem RDMs <b>encerradas</b> (Fechado/Cancelado…) — nenhuma Pendente ou em andamento. Se a pesquisa no GLPI estava filtrada por status, as RDMs em aberto ficaram de fora e os números do mês vão sair menores. Exporte com o status em <b>“Todos”</b>.`);
+  return av;
+}
+
 $('#inCSV').addEventListener('change', async e => {
   const files = [...e.target.files];
-  let msgs = [];
+  let msgs = [], avisos = [];
   for (const f of files) {
     try {
       const regs = csvParaRegistros(decodificar(await f.arrayBuffer()));
       const r = Historico.mesclar(regs);
       msgs.push(`${f.name}: ${regs.length} linhas (${r.add} novas, ${r.upd} atualizadas)${r.salvo ? '' : ' — ⚠️ não coube no armazenamento do navegador'}`);
+      avisos.push(...avisosDoCSV(f.name, regs));
     } catch (err) { msgs.push(`${f.name}: erro — ${err.message}`); }
   }
   e.target.value = '';
   $('#msgHist').textContent = msgs.join(' · ');
+  $('#avisosCSV').innerHTML = avisos.map(a => `<li>⚠️ ${a}</li>`).join('');
+  $('#avisosCSV').hidden = !avisos.length;
+  if (avisos.length) toast('Importado — mas o arquivo parece incompleto (veja o aviso)');
   atualizarBadge(); preencherFiltros(); renderHistorico(); if (typeof renderDashboard === 'function') renderDashboard();
   if (ultimo) renderResultado();
 });

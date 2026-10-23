@@ -20,6 +20,10 @@ for (const f of arquivos) {
   const regs = ctx.R.csvParaRegistros(ctx.R.decodificar(fs.readFileSync(path.join(pasta, f))));
   for (const r of regs) mapa.set(r.id, r);
   console.log(`${f}: ${regs.length} mudanças`);
+  if ([5, 10, 15, 20, 25, 30, 40, 50, 100, 200].includes(regs.length))
+    console.log(`  ⚠ exatamente ${regs.length} linhas = uma página do GLPI. Exporte "Todas as páginas".`);
+  if (regs.length >= 20 && !regs.some(r => r.status && !/fechad|cancel|recus|aplicad|encerrad|resolvid/i.test(r.status)))
+    console.log('  ⚠ só RDMs encerradas (nenhuma Pendente/em andamento). Exporte com Status = Todos.');
 }
 const lista = [...mapa.values()].sort((a, b) => b.id.localeCompare(a.id));
 const saida = `/* GERADO AUTOMATICAMENTE por atualizar-base.js em ${new Date().toLocaleString('pt-BR')} — não edite à mão */\n`
